@@ -347,29 +347,3 @@ readRxNormRelationshipsFile()
 readRxNormAttributesFile()
 readRxTermsFile()
 loadBundleToServer()
-
-println meds.size()
-
-
-
-
-
-
-
-/*
-FhirContext ctxDstu3 = FhirContext.forDstu3()
-meds.each { Medication med ->
-	println ctxDstu3.newJsonParser().encodeResourceToString(med)
-}
-
-Set units = []
-meds.each {
-	
-	it.getIngredient().each {
-		units << it.getAmount().numerator.unit
-		units << it.getAmount().denominator.unit
-	}
-		
-}
-
-println units*/
