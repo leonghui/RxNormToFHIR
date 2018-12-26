@@ -13,6 +13,7 @@ import org.hl7.fhir.dstu3.model.Medication.MedicationIngredientComponent
 import org.hl7.fhir.dstu3.model.Quantity
 import org.hl7.fhir.dstu3.model.Ratio
 import org.hl7.fhir.dstu3.model.Substance
+import org.hl7.fhir.dstu3.model.UriType
 import org.hl7.fhir.dstu3.model.Bundle
 import org.hl7.fhir.dstu3.model.Bundle.BundleType
 import org.hl7.fhir.dstu3.model.Bundle.HTTPVerb
@@ -22,12 +23,14 @@ Stopwatch watch = Stopwatch.createStarted()
 
 FhirContext ctxDstu3 = FhirContext.forDstu3()
 
-String FHIR_SERVER_URL = 'http://server:port/baseDstu3'
+String FHIR_SERVER_URL = 'http://<server>:<port>/baseDstu3'
 String RXNORM_SYSTEM = 'http://www.nlm.nih.gov/research/umls/rxnorm'
-String RXNORM_VERSION = '10012018'
+String RXNORM_VERSION = '12032018'
+String RXNORM_FOLDER_NAME = "RxNorm_full_prescribe_$RXNORM_VERSION"
 
-// rxTerms release 
-String RXTERMS_VERSION = '201809'
+// rxTerms release
+String RXTERMS_VERSION = '201812'
+String RXTERMS_FOLDER_NAME = "RxTerms$RXTERMS_VERSION"
 
 // rxNorm concepts
 Map<String, CodeableConcept> ingredients = [:]
@@ -59,36 +62,36 @@ Closure logStop = {
 	println watch.toString()
 }
 
-Closure readRxNormConceptsFile = { 
-	
+Closure readRxNormConceptsFile = {
+
 	logStart('Reading RxNorm concepts file')
-	
-	FileReader cpcRxnConso = new FileReader("src/main/resources/RxNorm_full_$RXNORM_VERSION/prescribe/rrf/RXNCONSO.RRF")
-	
+
+	FileReader cpcRxnConso = new FileReader("src/main/resources/$RXNORM_FOLDER_NAME/rrf/RXNCONSO.RRF")
+
 	cpcRxnConso.eachLine { String line, int number ->
-		
+
 		List<String> tokens = line.split(/\|/)
-		
-		/* 0	RXCUI 
-		 * 1	LAT 
-		 * 2	TS 
-		 * 3	LUI 
-		 * 4	STT 
-		 * 5	SUI 
-		 * 6	ISPREF 
-		 * 7	RXAUI 
-		 * 8	SAUI 
-		 * 9	SCUI 
-		 * 10	SDUI 
-		 * 11	SAB 
-		 * 12	TTY 
-		 * 13	CODE 
-		 * 14	STR 
-		 * 15	SRL 
-		 * 16	SUPPRESS 
-		 * 17	CVF 
+
+		/* 0	RXCUI
+		 * 1	LAT
+		 * 2	TS
+		 * 3	LUI
+		 * 4	STT
+		 * 5	SUI
+		 * 6	ISPREF
+		 * 7	RXAUI
+		 * 8	SAUI
+		 * 9	SCUI
+		 * 10	SDUI
+		 * 11	SAB
+		 * 12	TTY
+		 * 13	CODE
+		 * 14	STR
+		 * 15	SRL
+		 * 16	SUPPRESS
+		 * 17	CVF
 		 */
-	
+
 		switch (tokens.get(12)) {
 			case 'DF': // RXCUI, STR
 				CodeableConcept doseForm = new CodeableConcept()
@@ -107,37 +110,37 @@ Closure readRxNormConceptsFile = {
 				break
 		}
 	}
-	
+
 	cpcRxnConso.close()
 	logStop()
 }
 
 Closure readRxNormRelationshipsFile = {
 	logStart('Reading RxNorm relationships file')
-	FileReader cpcRxnRel = new FileReader("src/main/resources/RxNorm_full_$RXNORM_VERSION/prescribe/rrf/RXNREL.RRF")
-	
+	FileReader cpcRxnRel = new FileReader("src/main/resources/$RXNORM_FOLDER_NAME/rrf/RXNREL.RRF")
+
 	cpcRxnRel.eachLine { String line, int number ->
-		
+
 		List<String> tokens = line.split(/\|/)
-		
-		/* 0	RXCUI1 
-		 * 1	RXAUI1 
-		 * 2	STYPE1 
-		 * 3	REL 
-		 * 4	RXCUI2 
-		 * 5	RXAUI2 
-		 * 6	STYPE2 
-		 * 7	RELA 
-		 * 8	RUI 
-		 * 9	SRUI 
-		 * 10	SAB 
-		 * 11	SL 
-		 * 12	DIR 
-		 * 13	RG 
-		 * 14	SUPPRESS 
-		 * 15	CVF 
+
+		/* 0	RXCUI1
+		 * 1	RXAUI1
+		 * 2	STYPE1
+		 * 3	REL
+		 * 4	RXCUI2
+		 * 5	RXAUI2
+		 * 6	STYPE2
+		 * 7	RELA
+		 * 8	RUI
+		 * 9	SRUI
+		 * 10	SAB
+		 * 11	SL
+		 * 12	DIR
+		 * 13	RG
+		 * 14	SUPPRESS
+		 * 15	CVF
 		 */
-	
+
 		switch (tokens.get(7)) {
 			case 'has_ingredient':
 				hasIngredient.put(tokens.get(4), tokens.get(0))
@@ -155,36 +158,36 @@ Closure readRxNormRelationshipsFile = {
 				contains.put(tokens.get(4), tokens.get(0))
 		}
 	}
-	
+
 	cpcRxnRel.close()
 	logStop()
 }
 
 Closure readRxNormAttributesFile = {
 	logStart('Reading RxNorm attributes file')
-	FileReader cpcRxnSat = new FileReader("src/main/resources/RxNorm_full_$RXNORM_VERSION/prescribe/rrf/RXNSAT.RRF")
-	
+	FileReader cpcRxnSat = new FileReader("src/main/resources/$RXNORM_FOLDER_NAME/rrf/RXNSAT.RRF")
+
 	cpcRxnSat.eachLine { String line, int number ->
-		
+
 		List<String> tokens = line.split(/\|/)
-		
-		/* 0	RXCUI 
-		 * 1	LUI 
-		 * 2	SUI 
-		 * 3	RXAUI 
-		 * 4	STYPE 
-		 * 5	CODE 
-		 * 6	ATUI 
-		 * 7	SATUI 
-		 * 8	ATN 
-		 * 9	SAB 
-		 * 10	ATV 
-		 * 11	SUPPRESS 
-		 * 12	CVF 
+
+		/* 0	RXCUI
+		 * 1	LUI
+		 * 2	SUI
+		 * 3	RXAUI
+		 * 4	STYPE
+		 * 5	CODE
+		 * 6	ATUI
+		 * 7	SATUI
+		 * 8	ATN
+		 * 9	SAB
+		 * 10	ATV
+		 * 11	SUPPRESS
+		 * 12	CVF
 		 */
-		
+
 		String attribName = tokens.get(8)
-		
+
 		switch (attribName) {
 			case [
 					'RXN_BOSS_STRENGTH_NUM_VALUE',
@@ -196,45 +199,45 @@ Closure readRxNormAttributesFile = {
 				break
 		}
 	}
-	
+
 	cpcRxnSat.close()
 	logStop()
 }
 
 Closure<MedicationIngredientComponent> getMedicationIngredientComponent = { String scdc_rxCui ->
 	MedicationIngredientComponent component = new MedicationIngredientComponent()
-	
+
 	Map<String, String> scdcAmount = attributes.row(scdc_rxCui)
-	
+
 	if (scdcAmount) {
 		String denominatorUnit = scdcAmount.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
 		Double denominatorValue = scdcAmount.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
 		String numeratorUnit = scdcAmount.get('RXN_BOSS_STRENGTH_NUM_UNIT')
 		Double numeratorValue = scdcAmount.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
-		
+
 		Ratio amount = new Ratio()
 			.setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
 			.setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
-			
+
 		component.setAmount(amount)
 	}
-	
+
 	String ing_rxCui = hasIngredient.get(scdc_rxCui).first() // assume each SCDC only has one ingredient
-	
+
 	component.setItem(ingredients.get(ing_rxCui))
 
 	component.setIsActive(true)
-	
+
 	return component
 }
 
 Closure readRxTermsFile = {
 	logStart('Reading RxTerms file')
-	FileReader rxTerms = new FileReader("src/main/resources/RxTerms$RXTERMS_VERSION/RxTerms${RXTERMS_VERSION}.txt")
-	
+	FileReader rxTerms = new FileReader("src/main/resources/$RXTERMS_FOLDER_NAME/RxTerms${RXTERMS_VERSION}.txt")
+
 	rxTerms.eachLine { String line, int number ->
 		if (number == 1) return
-		
+
 		/*
 		 * 0	RXCUI
 		 * 1	GENERIC_RXCUI
@@ -256,12 +259,12 @@ Closure readRxTermsFile = {
 		 * 17	PSN
 		 */
 		List<String> tokens = line.split(/\|/)
-		
+
 		String rxCui = tokens.get(0)
 		String tty = tokens.get(2)
-		
+
 		Medication med = new Medication()
-		
+
 		switch (tty) {
 			case ['SBD', 'BPCK']:
 				med.setIsBrand(true)
@@ -285,60 +288,45 @@ Closure readRxTermsFile = {
 				}
 				break
 		}
-		
+
 		med.setStatus(Medication.MedicationStatus.ACTIVE)
 		med.setForm(doseForms.get(hasDoseForm.get(rxCui)))
 		med.setCode(rxNormConcepts.get(rxCui))
-		med.setId(rxCui) // use rxCui as resource ID
+		med.setId("rxNorm-$rxCui") // use rxNorm-<rxCui> as resource ID
 		meds << med
-		
-		
+
 	}
-	
+
 	rxTerms.close()
 	logStop()
 }
 
-/*Closure addResourcesToBundle = {
-	logStart('Adding resources into a bundle')
-	
-	meds.each {
-		bundle.addEntry()
-			.setResource(it)
-			.getRequest()
-				.setUrl("Medication")
-				.setMethod(HTTPVerb.PUT)
-	}
-	
-	logStop()
-}*/
-
 Closure loadBundleToServer = {
-	
+
 	IGenericClient client = ctxDstu3.newRestfulGenericClient(FHIR_SERVER_URL);
-	
+
 	ctxDstu3.getRestfulClientFactory().setConnectTimeout(30 * 1000)
-	ctxDstu3.getRestfulClientFactory().setSocketTimeout(60 * 1000)
-	
+	ctxDstu3.getRestfulClientFactory().setSocketTimeout(90 * 1000)
+
 	logStart('Loading bundle to server')
-	
+
 	meds.collate(1000).each { batch ->
-	
-	Bundle input = new Bundle()
-	
-	batch.each {
-		input.setType(BundleType.TRANSACTION)
-		input.addEntry()
-			.setResource(it)
-			.getRequest()
-				.setUrl("Medication")
-				.setMethod(HTTPVerb.POST)
-	}
-			
+
+		Bundle input = new Bundle()
+
+		batch.each {
+			input.setType(BundleType.TRANSACTION)
+			input.addEntry()
+				.setResource(it)
+				.getRequest()
+					.setUrlElement(new UriType("Medication/$it.id"))
+					.setMethod(HTTPVerb.PUT) // update resource if exists
+		}
+
 	Bundle response = client.transaction().withBundle(input).execute()
 
 	}
-	
+
 	logStop()
 }
 
