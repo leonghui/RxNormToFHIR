@@ -29,6 +29,7 @@ String RXTERMS_FOLDER_NAME = "RxTerms$RXTERMS_VERSION"
 // rxNorm concepts
 // rxCui, CodeableConcept
 Map<String, CodeableConcept> ingredients = [:]
+Map<String, CodeableConcept> brandNames = [:]
 Map<String, CodeableConcept> doseForms = [:]
 Map<String, CodeableConcept> rxNormConcepts = [:]
 
@@ -40,7 +41,6 @@ Map<String, String> hasDoseForm = [:]
 // source rxCui, target rxCui
 Multimap<String, String> hasIngredient = HashMultimap.create()
 Multimap<String, String> consistsOf = HashMultimap.create()
-Multimap<String, String> tradenameOf = HashMultimap.create()
 Multimap<String, String> contains = HashMultimap.create()
 
 // rxNorm attributes
@@ -102,6 +102,11 @@ Closure readRxNormConceptsFile = {
 					.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
 				ingredients.put(tokens.get(0), ingredient)
 				break
+			case 'BN': // RXCUI, STR
+				CodeableConcept brandName = new CodeableConcept()
+					.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+				brandNames.put(tokens.get(0), brandName)
+				break
 			case ['SCD', 'SBD', 'GPCK', 'BPCK']: // RXCUI, STR
 				CodeableConcept concept = new CodeableConcept()
 					.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
@@ -149,9 +154,6 @@ Closure readRxNormRelationshipsFile = {
 				break
 			case 'has_dose_form':
 				hasDoseForm.put(tokens.get(4), tokens.get(0))
-				break
-			case 'tradename_of':
-				tradenameOf.put(tokens.get(4), tokens.get(0))
 				break
 			case 'contains':
 				contains.put(tokens.get(4), tokens.get(0))
@@ -204,7 +206,7 @@ Closure readRxNormAttributesFile = {
 }
 
 Closure<MedicationIngredientComponent> getMedicationIngredientComponent = { String scdc_rxCui ->
-	String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each SCDC only has one ingredient
+	String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each component has only one ingredient
 
     CodeableConcept ingredient = ingredients.get(ing_rxCui)
 
@@ -283,8 +285,15 @@ Closure readRxTermsFile = {
 		Medication med = new Medication()
 
 		switch (tty) {
-			case ['SBD', 'BPCK']:
+			case ['SBD']:
 				med.setIsBrand(true)
+				String bn_rxCui = hasIngredient.get(rxCui).first()	// SBDs have only one BN
+				Extension brandExtension = new Extension()
+					.setUrl("$FHIR_SERVER_URL/StructureDefinition/brand")
+					.setValue(brandNames.get(bn_rxCui))
+				med.addExtension(brandExtension)
+			case ['BPCK']:
+				med.setIsBrand(true)	// BPCKs do not have BNs
 				break
 			case ['SCD', 'GPCK']:
 				med.setIsBrand(false)
@@ -293,14 +302,14 @@ Closure readRxTermsFile = {
 
 		switch (tty) {
 			case ['SBD', 'SCD']:
-				consistsOf.get(rxCui).each { String scdc_rxCui ->
-					med.addIngredient(getMedicationIngredientComponent(scdc_rxCui))
+				consistsOf.get(rxCui).each { String drugComponent_rxCui ->
+					med.addIngredient(getMedicationIngredientComponent(drugComponent_rxCui))
 				}
 				break
 			case ['BPCK', 'GPCK']:
-				contains.get(rxCui).each { String scd_rxCui ->
-					consistsOf.get(scd_rxCui).each { String scdc_rxCui ->
-						med.addIngredient(getMedicationIngredientComponent(scdc_rxCui))
+				contains.get(rxCui).each { String clinicalDrug_rxCui ->
+					consistsOf.get(clinicalDrug_rxCui).each { String drugComponent_rxCui ->
+						med.addIngredient(getMedicationIngredientComponent(drugComponent_rxCui))
 					}
 				}
 				break
