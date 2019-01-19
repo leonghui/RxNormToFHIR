@@ -21,19 +21,20 @@ The goal is to create a FHIR server to be used as a dictionary backend for natur
 
 Script output:
 ```
+Reading RxNorm concepts file    1.297 s
+Reading RxNorm relationships file    6.595 s
+Reading RxNorm attributes file    6.534 s
+Reading RxTerms file    145.8 ms
 [main] INFO ca.uhn.fhir.util.VersionUtil - HAPI FHIR version is: 3.6.0
 [main] INFO ca.uhn.fhir.context.FhirContext - Creating new FHIR context for FHIR version [DSTU3]
-Reading RxNorm concepts file	1.413 s
-Reading RxNorm relationships file	6.546 s
-Reading RxNorm attributes file	7.725 s
-Reading RxTerms file	1.406 s
-[main] INFO ca.uhn.fhir.util.XmlUtil - FHIR XML procesing will use StAX implementation 'Java Runtime Environment' version '1.8.0_191'
-Loading bundle to server	12.92 min
+[main] INFO ca.uhn.fhir.util.XmlUtil - FHIR XML procesing will use StAX implementation 'Java Runtime Environment' version '1.8.0_201'
+Loading Medication bundle to server    2.497 s
+Loading Substance bundle to server    278.5 ms
 
 ```
 
 TODO
-- [ ] Load RxNorm ingredients as FHIR Substance resources
+- [x] Load RxNorm ingredients as FHIR Substance resources
 - [ ] Load RxNorm parent concepts as extensions in FHIR Medication resources
 - [ ] Load RxNorm brand names as extensions in FHIR Medication resources
 
