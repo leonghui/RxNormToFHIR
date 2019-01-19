@@ -1,27 +1,21 @@
+package main.groovy
+
 import ca.uhn.fhir.context.FhirContext
 import ca.uhn.fhir.rest.client.api.IGenericClient
-
 import com.google.common.base.Stopwatch
 import com.google.common.collect.HashBasedTable
 import com.google.common.collect.HashMultimap
 import com.google.common.collect.Multimap
 import com.google.common.collect.Table
-import org.hl7.fhir.dstu3.model.CodeableConcept
-import org.hl7.fhir.dstu3.model.Coding
-import org.hl7.fhir.dstu3.model.Medication
-import org.hl7.fhir.dstu3.model.Medication.MedicationIngredientComponent
-import org.hl7.fhir.dstu3.model.Quantity
-import org.hl7.fhir.dstu3.model.Ratio
-import org.hl7.fhir.dstu3.model.Substance
-import org.hl7.fhir.dstu3.model.UriType
-import org.hl7.fhir.dstu3.model.Bundle
+import org.hl7.fhir.dstu3.model.*
 import org.hl7.fhir.dstu3.model.Bundle.BundleType
 import org.hl7.fhir.dstu3.model.Bundle.HTTPVerb
-import org.hl7.fhir.dstu3.model.codesystems.MedicationStatus
+import org.hl7.fhir.dstu3.model.Medication.MedicationIngredientComponent
 
 Stopwatch watch = Stopwatch.createStarted()
 
-FhirContext ctxDstu3 = FhirContext.forDstu3()
+int CONNECT_TIMEOUT_SEC = 10
+int SOCKET_TIMEOUT_SEC = 90
 
 String FHIR_SERVER_URL = 'http://<server>:<port>/baseDstu3'
 String RXNORM_SYSTEM = 'http://www.nlm.nih.gov/research/umls/rxnorm'
@@ -33,29 +27,34 @@ String RXTERMS_VERSION = '201812'
 String RXTERMS_FOLDER_NAME = "RxTerms$RXTERMS_VERSION"
 
 // rxNorm concepts
+// rxCui, CodeableConcept
 Map<String, CodeableConcept> ingredients = [:]
 Map<String, CodeableConcept> doseForms = [:]
 Map<String, CodeableConcept> rxNormConcepts = [:]
 
 // rxNorm one-to-one relationships
+// source rxCui, target rxCui
 Map<String, String> hasDoseForm = [:]
 
 // rxNorm one-to-many relationships
+// source rxCui, target rxCui
 Multimap<String, String> hasIngredient = HashMultimap.create()
 Multimap<String, String> consistsOf = HashMultimap.create()
 Multimap<String, String> tradenameOf = HashMultimap.create()
 Multimap<String, String> contains = HashMultimap.create()
 
 // rxNorm attributes
+// rxCui, ATN, ATV
 Table<String, String, String> attributes = HashBasedTable.create()
 
-// script containers
-List<Medication> meds = []
-List<Substance> substances = []
+// data structures to store FHIR resources
+// FHIR ID, Resource
+Map<String, Medication> medications = [:]
+Map<String, Substance> substances = [:]
 
 Closure logStart = { String job ->
 	watch.reset().start()
-	print job + ("\t")
+	print job + ('\t')
 }
 
 Closure logStop = {
@@ -222,8 +221,21 @@ Closure<MedicationIngredientComponent> getMedicationIngredientComponent = { Stri
 		component.setAmount(amount)
 	}
 
-	String ing_rxCui = hasIngredient.get(scdc_rxCui).first() // assume each SCDC only has one ingredient
+	String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each SCDC only has one ingredient
 
+	Substance substance = new Substance()
+
+	substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
+	substance.setCode(ingredients.get(ing_rxCui))
+
+    String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
+	substance.setId(substanceId)
+
+	substances.put(substanceId, substance)
+
+    // BUG: setItem() in HAPI-FHIR 3.6.0 does not accept Reference as value
+	// Reference substanceReference = new Reference ('Substance' + '/' + substanceId)
+    // component.setItem(substanceReference)
 	component.setItem(ingredients.get(ing_rxCui))
 
 	component.setIsActive(true)
@@ -292,8 +304,9 @@ Closure readRxTermsFile = {
 		med.setStatus(Medication.MedicationStatus.ACTIVE)
 		med.setForm(doseForms.get(hasDoseForm.get(rxCui)))
 		med.setCode(rxNormConcepts.get(rxCui))
-		med.setId("rxNorm-$rxCui") // use rxNorm-<rxCui> as resource ID
-		meds << med
+        String medId = "rxNorm-$rxCui"  // use rxNorm-<rxCui> as resource ID
+		med.setId(medId)
+		medications.put(medId, med)
 
 	}
 
@@ -301,30 +314,33 @@ Closure readRxTermsFile = {
 	logStop()
 }
 
-Closure loadBundleToServer = {
+Closure<IGenericClient> initiateConnection = {
+	FhirContext ctxDstu3 = FhirContext.forDstu3()
+	ctxDstu3.getRestfulClientFactory().setConnectTimeout(CONNECT_TIMEOUT_SEC * 1000)
+	ctxDstu3.getRestfulClientFactory().setSocketTimeout(SOCKET_TIMEOUT_SEC * 1000)
 
-	IGenericClient client = ctxDstu3.newRestfulGenericClient(FHIR_SERVER_URL);
+	return ctxDstu3.newRestfulGenericClient(FHIR_SERVER_URL)
+}
 
-	ctxDstu3.getRestfulClientFactory().setConnectTimeout(30 * 1000)
-	ctxDstu3.getRestfulClientFactory().setSocketTimeout(90 * 1000)
+Closure loadBundleToServer = { IGenericClient newClient, Collection<Resource> resources, String resourceType ->
+	logStart("Loading $resourceType bundle to server")
 
-	logStart('Loading bundle to server')
-
-	meds.collate(1000).each { batch ->
+	resources.collate(1000).each { batch ->
 
 		Bundle input = new Bundle()
 
 		batch.each {
 			input.setType(BundleType.TRANSACTION)
 			input.addEntry()
-				.setResource(it)
-				.getRequest()
-					.setUrlElement(new UriType("Medication/$it.id"))
+					.setResource(it)
+					.getRequest()
+					.setUrlElement(new UriType("$resourceType/$it.id"))
 					.setMethod(HTTPVerb.PUT) // update resource if exists
 		}
 
-	Bundle response = client.transaction().withBundle(input).execute()
+		Bundle response = newClient.transaction().withBundle(input).execute()
 
+		assert response.getType() == BundleType.TRANSACTIONRESPONSE
 	}
 
 	logStop()
@@ -334,4 +350,7 @@ readRxNormConceptsFile()
 readRxNormRelationshipsFile()
 readRxNormAttributesFile()
 readRxTermsFile()
-loadBundleToServer()
+
+IGenericClient client = initiateConnection()
+loadBundleToServer(client, medications.values(), 'Medication')
+loadBundleToServer(client, substances.values(), 'Substance')
