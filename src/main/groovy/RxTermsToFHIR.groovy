@@ -204,43 +204,48 @@ Closure readRxNormAttributesFile = {
 }
 
 Closure<MedicationIngredientComponent> getMedicationIngredientComponent = { String scdc_rxCui ->
-	MedicationIngredientComponent component = new MedicationIngredientComponent()
-
-	Map<String, String> scdcAmount = attributes.row(scdc_rxCui)
-
-	if (scdcAmount) {
-		String denominatorUnit = scdcAmount.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
-		Double denominatorValue = scdcAmount.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
-		String numeratorUnit = scdcAmount.get('RXN_BOSS_STRENGTH_NUM_UNIT')
-		Double numeratorValue = scdcAmount.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
-
-		Ratio amount = new Ratio()
-			.setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
-			.setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
-
-		component.setAmount(amount)
-	}
-
 	String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each SCDC only has one ingredient
 
-	Substance substance = new Substance()
+    CodeableConcept ingredient = ingredients.get(ing_rxCui)
 
-	substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
-	substance.setCode(ingredients.get(ing_rxCui))
+    if (ingredient) {
+        MedicationIngredientComponent component = new MedicationIngredientComponent()
 
-    String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
-	substance.setId(substanceId)
+        Substance substance = new Substance()
 
-	substances.put(substanceId, substance)
+        substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
+        substance.setCode(ingredients.get(ing_rxCui))
 
-    // BUG: setItem() in HAPI-FHIR 3.6.0 does not accept Reference as value
-	// Reference substanceReference = new Reference ('Substance' + '/' + substanceId)
-    // component.setItem(substanceReference)
-	component.setItem(ingredients.get(ing_rxCui))
+        String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
+        substance.setId(substanceId)
 
-	component.setIsActive(true)
+        substances.put(substanceId, substance)
 
-	return component
+        // BUG: setItem() in HAPI-FHIR 3.6.0 does not accept Reference as value
+        // Reference substanceReference = new Reference ('Substance' + '/' + substanceId)
+        // component.setItem(substanceReference)
+        component.setItem(ingredients.get(ing_rxCui))
+
+        Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
+
+        if (scdcAttributes) {
+            String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
+            Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
+            String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
+            Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
+
+            Ratio amount = new Ratio()
+                    .setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
+                    .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
+
+            component.setAmount(amount)
+        }
+
+        component.setIsActive(true)
+
+        return component
+
+    }
 }
 
 Closure readRxTermsFile = {
