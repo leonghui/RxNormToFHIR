@@ -52,6 +52,9 @@ Table<String, String, String> attributes = HashBasedTable.create()
 Map<String, Medication> medications = [:]
 Map<String, Substance> substances = [:]
 
+// data structures to store custom search parameters
+List<SearchParameter> parameters = []
+
 Closure logStart = { String job ->
 	watch.reset().start()
 	print job + ('\t')
@@ -288,9 +291,10 @@ Closure readRxTermsFile = {
 			case ['SBD']:
 				med.setIsBrand(true)
 				String bn_rxCui = hasIngredient.get(rxCui).first()	// SBDs have only one BN
+				String bn_term = brandNames.get(bn_rxCui).getCodingFirstRep().getDisplay()
 				Extension brandExtension = new Extension()
-					.setUrl("$FHIR_SERVER_URL/StructureDefinition/brand")
-					.setValue(brandNames.get(bn_rxCui))
+						.setUrl("$FHIR_SERVER_URL/StructureDefinition/brand")
+						.setValue(new StringType(bn_term))
 				med.addExtension(brandExtension)
 				break
 			case ['BPCK']:
@@ -361,11 +365,26 @@ Closure loadBundleToServer = { IGenericClient newClient, Collection<? extends Re
 	logStop()
 }
 
+Closure writeSearchParameter = {
+	SearchParameter brandSp = new SearchParameter()
+	brandSp.addBase('Medication')
+			.setCode('brand')
+			.setType(Enumerations.SearchParamType.STRING)
+			.setStatus(Enumerations.PublicationStatus.ACTIVE)
+			.setXpathUsage(SearchParameter.XPathUsageType.NORMAL)
+			.setExpression("Medication.extension('" + FHIR_SERVER_URL + "/StructureDefinition/brand')")
+			.setTitle('Brand')
+
+	parameters.add(brandSp)
+}
+
 readRxNormConceptsFile()
 readRxNormRelationshipsFile()
 readRxNormAttributesFile()
 readRxTermsFile()
+writeSearchParameter()
 
 IGenericClient client = initiateConnection()
+loadBundleToServer(client, parameters, 'SearchParameter')
 loadBundleToServer(client, medications.values(), 'Medication')
 loadBundleToServer(client, substances.values(), 'Substance')
