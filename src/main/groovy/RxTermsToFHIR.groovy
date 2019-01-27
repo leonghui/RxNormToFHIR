@@ -94,22 +94,22 @@ Closure readRxNormConceptsFile = {
 		switch (tokens.get(12)) {
 			case 'DF': // RXCUI, STR
 				CodeableConcept doseForm = new CodeableConcept()
-					.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+						.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
 				doseForms.put(tokens.get(0), doseForm)
 				break
 			case 'IN': // RXCUI, STR
 				CodeableConcept ingredient = new CodeableConcept()
-					.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+						.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
 				ingredients.put(tokens.get(0), ingredient)
 				break
 			case 'BN': // RXCUI, STR
 				CodeableConcept brandName = new CodeableConcept()
-					.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+						.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
 				brandNames.put(tokens.get(0), brandName)
 				break
 			case ['SCD', 'SBD', 'GPCK', 'BPCK']: // RXCUI, STR
 				CodeableConcept concept = new CodeableConcept()
-					.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+						.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
 				rxNormConcepts.put(tokens.get(0), concept)
 				break
 		}
@@ -195,7 +195,7 @@ Closure readRxNormAttributesFile = {
 					'RXN_BOSS_STRENGTH_NUM_UNIT',
 					'RXN_BOSS_STRENGTH_DENOM_VALUE',
 					'RXN_BOSS_STRENGTH_DENOM_UNIT'
-				]: // RXCUI, ATN, ATV
+			]: // RXCUI, ATN, ATV
 				attributes.put(tokens.get(0), attribName, tokens.get(10))
 				break
 		}
@@ -208,46 +208,46 @@ Closure readRxNormAttributesFile = {
 Closure<MedicationIngredientComponent> getMedicationIngredientComponent = { String scdc_rxCui ->
 	String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each component has only one ingredient
 
-    CodeableConcept ingredient = ingredients.get(ing_rxCui)
+	CodeableConcept ingredient = ingredients.get(ing_rxCui)
 
-    if (ingredient) {
-        MedicationIngredientComponent component = new MedicationIngredientComponent()
+	if (ingredient) {
+		MedicationIngredientComponent component = new MedicationIngredientComponent()
 
-        Substance substance = new Substance()
+		Substance substance = new Substance()
 
-        substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
-        substance.setCode(ingredients.get(ing_rxCui))
+		substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
+		substance.setCode(ingredients.get(ing_rxCui))
 
-        String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
-        substance.setId(substanceId)
+		String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
+		substance.setId(substanceId)
 
-        substances.put(substanceId, substance)
+		substances.put(substanceId, substance)
 
-        // BUG: setItem() in HAPI-FHIR 3.6.0 does not accept Reference as value
-        // Reference substanceReference = new Reference ('Substance' + '/' + substanceId)
-        // component.setItem(substanceReference)
-        component.setItem(ingredients.get(ing_rxCui))
+		// BUG: setItem() in HAPI-FHIR 3.6.0 does not accept Reference as value
+		// Reference substanceReference = new Reference ('Substance' + '/' + substanceId)
+		// component.setItem(substanceReference)
+		component.setItem(ingredients.get(ing_rxCui))
 
-        Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
+		Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
 
-        if (scdcAttributes) {
-            String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
-            Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
-            String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
-            Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
+		if (scdcAttributes) {
+			String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
+			Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
+			String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
+			Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
 
-            Ratio amount = new Ratio()
-                    .setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
-                    .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
+			Ratio amount = new Ratio()
+					.setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
+					.setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
 
-            component.setAmount(amount)
-        }
+			component.setAmount(amount)
+		}
 
-        component.setIsActive(true)
+		component.setIsActive(true)
 
-        return component
+		return component
 
-    }
+	}
 }
 
 Closure readRxTermsFile = {
@@ -292,6 +292,7 @@ Closure readRxTermsFile = {
 					.setUrl("$FHIR_SERVER_URL/StructureDefinition/brand")
 					.setValue(brandNames.get(bn_rxCui))
 				med.addExtension(brandExtension)
+				break
 			case ['BPCK']:
 				med.setIsBrand(true)	// BPCKs do not have BNs
 				break
@@ -318,7 +319,7 @@ Closure readRxTermsFile = {
 		med.setStatus(Medication.MedicationStatus.ACTIVE)
 		med.setForm(doseForms.get(hasDoseForm.get(rxCui)))
 		med.setCode(rxNormConcepts.get(rxCui))
-        String medId = "rxNorm-$rxCui"  // use rxNorm-<rxCui> as resource ID
+		String medId = "rxNorm-$rxCui"  // use rxNorm-<rxCui> as resource ID
 		med.setId(medId)
 		medications.put(medId, med)
 
@@ -336,7 +337,7 @@ Closure<IGenericClient> initiateConnection = {
 	return ctxDstu3.newRestfulGenericClient(FHIR_SERVER_URL)
 }
 
-Closure loadBundleToServer = { IGenericClient newClient, Collection<Resource> resources, String resourceType ->
+Closure loadBundleToServer = { IGenericClient newClient, Collection<? extends Resource> resources, String resourceType ->
 	logStart("Loading $resourceType bundle to server")
 
 	resources.collate(1000).each { batch ->
