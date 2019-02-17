@@ -73,7 +73,7 @@ Closure readRxNormConceptsFile = {
 
 	cpcRxnConso.eachLine { String line, int number ->
 
-		List<String> tokens = line.split(/\|/)
+		List<String> tokens = line.split(/\|/, 19)
 
 		/* 0	RXCUI
 		 * 1	LAT
@@ -95,28 +95,31 @@ Closure readRxNormConceptsFile = {
 		 * 17	CVF
 		 */
 
-		switch (tokens.get(12)) {
-			case 'DF': // RXCUI, STR
-				CodeableConcept doseForm = new CodeableConcept()
-						.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
-				doseForms.put(tokens.get(0), doseForm)
-				break
-			case 'IN': // RXCUI, STR
-				CodeableConcept ingredient = new CodeableConcept()
-						.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
-				ingredients.put(tokens.get(0), ingredient)
-				break
-			case 'BN': // RXCUI, STR
-				CodeableConcept brandName = new CodeableConcept()
-						.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
-				brandNames.put(tokens.get(0), brandName)
-				break
-			case ['SCD', 'SBD', 'GPCK', 'BPCK']: // RXCUI, STR
-				CodeableConcept concept = new CodeableConcept()
-						.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
-				rxNormConcepts.put(tokens.get(0), concept)
-                rxNormTty.put(tokens.get(0), tokens.get(12))
-				break
+		// only consider non-suppressed RxNorm concepts
+		if (tokens.get(11) == "RXNORM" && (tokens.get(16) == "N" || tokens.get(16) == "")) {
+			switch (tokens.get(12)) {
+				case 'DF': // RXCUI, STR
+					CodeableConcept doseForm = new CodeableConcept()
+							.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+					doseForms.put(tokens.get(0), doseForm)
+					break
+				case 'IN': // RXCUI, STR
+					CodeableConcept ingredient = new CodeableConcept()
+							.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+					ingredients.put(tokens.get(0), ingredient)
+					break
+				case 'BN': // RXCUI, STR
+					CodeableConcept brandName = new CodeableConcept()
+							.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+					brandNames.put(tokens.get(0), brandName)
+					break
+				case ['SCD', 'SBD', 'GPCK', 'BPCK']: // RXCUI, STR
+					CodeableConcept concept = new CodeableConcept()
+							.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+					rxNormConcepts.put(tokens.get(0), concept)
+					rxNormTty.put(tokens.get(0), tokens.get(12))
+					break
+			}
 		}
 	}
 
@@ -130,7 +133,7 @@ Closure readRxNormRelationshipsFile = {
 
 	cpcRxnRel.eachLine { String line, int number ->
 
-		List<String> tokens = line.split(/\|/)
+		List<String> tokens = line.split(/\|/, 17)
 
 		/* 0	RXCUI1
 		 * 1	RXAUI1
@@ -150,18 +153,21 @@ Closure readRxNormRelationshipsFile = {
 		 * 15	CVF
 		 */
 
-		switch (tokens.get(7)) {
-			case 'has_ingredient':
-				hasIngredient.put(tokens.get(4), tokens.get(0))
-				break
-			case 'consists_of':
-				consistsOf.put(tokens.get(4), tokens.get(0))
-				break
-			case 'has_dose_form':
-				hasDoseForm.put(tokens.get(4), tokens.get(0))
-				break
-			case 'contains':
-				contains.put(tokens.get(4), tokens.get(0))
+		// only consider non-suppressed RxNorm relationships
+		if (tokens.get(10) == "RXNORM" && (tokens.get(14) == "N" || tokens.get(14) == "")) {
+			switch (tokens.get(7)) {
+				case 'has_ingredient':
+					hasIngredient.put(tokens.get(4), tokens.get(0))
+					break
+				case 'consists_of':
+					consistsOf.put(tokens.get(4), tokens.get(0))
+					break
+				case 'has_dose_form':
+					hasDoseForm.put(tokens.get(4), tokens.get(0))
+					break
+				case 'contains':
+					contains.put(tokens.get(4), tokens.get(0))
+			}
 		}
 	}
 
@@ -175,7 +181,7 @@ Closure readRxNormAttributesFile = {
 
 	cpcRxnSat.eachLine { String line, int number ->
 
-		List<String> tokens = line.split(/\|/)
+		List<String> tokens = line.split(/\|/, 14)
 
 		/* 0	RXCUI
 		 * 1	LUI
@@ -194,15 +200,18 @@ Closure readRxNormAttributesFile = {
 
 		String attribName = tokens.get(8)
 
-		switch (attribName) {
-			case [
-					'RXN_BOSS_STRENGTH_NUM_VALUE',
-					'RXN_BOSS_STRENGTH_NUM_UNIT',
-					'RXN_BOSS_STRENGTH_DENOM_VALUE',
-					'RXN_BOSS_STRENGTH_DENOM_UNIT'
-			]: // RXCUI, ATN, ATV
-				attributes.put(tokens.get(0), attribName, tokens.get(10))
-				break
+		// only consider non-suppressed RxNorm attributes
+		if (tokens.get(9) == "RXNORM" && (tokens.get(11) == "N" || tokens.get(11) == "")) {
+			switch (attribName) {
+				case [
+						'RXN_BOSS_STRENGTH_NUM_VALUE',
+						'RXN_BOSS_STRENGTH_NUM_UNIT',
+						'RXN_BOSS_STRENGTH_DENOM_VALUE',
+						'RXN_BOSS_STRENGTH_DENOM_UNIT'
+				]: // RXCUI, ATN, ATV
+					attributes.put(tokens.get(0), attribName, tokens.get(10))
+					break
+			}
 		}
 	}
 
