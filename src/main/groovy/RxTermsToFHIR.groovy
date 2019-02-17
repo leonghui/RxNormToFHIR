@@ -20,11 +20,8 @@ int SOCKET_TIMEOUT_SEC = 90
 String FHIR_SERVER_URL = 'http://<server>:<port>/baseDstu3'
 String RXNORM_SYSTEM = 'http://www.nlm.nih.gov/research/umls/rxnorm'
 String RXNORM_VERSION = '12032018'
-String RXNORM_FOLDER_NAME = "RxNorm_full_prescribe_$RXNORM_VERSION"
+String RXNORM_FOLDER_NAME = "RxNorm_full_$RXNORM_VERSION"
 
-// rxTerms release
-String RXTERMS_VERSION = '201812'
-String RXTERMS_FOLDER_NAME = "RxTerms$RXTERMS_VERSION"
 
 // rxNorm concepts
 // rxCui, CodeableConcept
@@ -46,6 +43,10 @@ Multimap<String, String> contains = HashMultimap.create()
 // rxNorm attributes
 // rxCui, ATN, ATV
 Table<String, String, String> attributes = HashBasedTable.create()
+
+// rxNorm term type
+// rxCui, TTY
+Map<String, String> rxNormTty = [:]
 
 // data structures to store FHIR resources
 // FHIR ID, Resource
@@ -114,6 +115,7 @@ Closure readRxNormConceptsFile = {
 				CodeableConcept concept = new CodeableConcept()
 						.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
 				rxNormConcepts.put(tokens.get(0), concept)
+                rxNormTty.put(tokens.get(0), tokens.get(12))
 				break
 		}
 	}
@@ -253,83 +255,57 @@ Closure<MedicationIngredientComponent> getMedicationIngredientComponent = { Stri
 	}
 }
 
-Closure readRxTermsFile = {
-	logStart('Reading RxTerms file')
-	FileReader rxTerms = new FileReader("src/main/resources/$RXTERMS_FOLDER_NAME/RxTerms${RXTERMS_VERSION}.txt")
+Closure writeMedicationResources = {
+	logStart('Writing FHIR Medication resources')
 
-	rxTerms.eachLine { String line, int number ->
-		if (number == 1) return
+    rxNormConcepts.keySet().each { rxCui ->
 
-		/*
-		 * 0	RXCUI
-		 * 1	GENERIC_RXCUI
-		 * 2	TTY
-		 * 3	FULL_NAME
-		 * 4	RXN_DOSE_FORM
-		 * 5	FULL_GENERIC_NAME
-		 * 6	BRAND_NAME
-		 * 7	DISPLAY_NAME
-		 * 8	ROUTE
-		 * 9	NEW_DOSE_FORM
-		 * 10	STRENGTH
-		 * 11	SUPPRESS_FOR
-		 * 12	DISPLAY_NAME_SYNONYM
-		 * 13	IS_RETIRED
-		 * 14	SXDG_RXCUI
-		 * 15	SXDG_TTY
-		 * 16	SXDG_NAME
-		 * 17	PSN
-		 */
-		List<String> tokens = line.split(/\|/)
+        Medication med = new Medication()
 
-		String rxCui = tokens.get(0)
-		String tty = tokens.get(2)
+        String tty = rxNormTty.get(rxCui)
 
-		Medication med = new Medication()
+        switch (tty) {
+            case ['SBD']:
+                med.setIsBrand(true)
+                String bn_rxCui = hasIngredient.get(rxCui).first()    // SBDs have only one BN
+                String bn_term = brandNames.get(bn_rxCui).getCodingFirstRep().getDisplay()
+                Extension brandExtension = new Extension()
+                        .setUrl("$FHIR_SERVER_URL/StructureDefinition/brand")
+                        .setValue(new StringType(bn_term))
+                med.addExtension(brandExtension)
+                break
+            case ['BPCK']:
+                med.setIsBrand(true)    // BPCKs do not have BNs
+                break
+            case ['SCD', 'GPCK']:
+                med.setIsBrand(false)
+                break
+        }
 
-		switch (tty) {
-			case ['SBD']:
-				med.setIsBrand(true)
-				String bn_rxCui = hasIngredient.get(rxCui).first()	// SBDs have only one BN
-				String bn_term = brandNames.get(bn_rxCui).getCodingFirstRep().getDisplay()
-				Extension brandExtension = new Extension()
-						.setUrl("$FHIR_SERVER_URL/StructureDefinition/brand")
-						.setValue(new StringType(bn_term))
-				med.addExtension(brandExtension)
-				break
-			case ['BPCK']:
-				med.setIsBrand(true)	// BPCKs do not have BNs
-				break
-			case ['SCD', 'GPCK']:
-				med.setIsBrand(false)
-				break
-		}
+        switch (tty) {
+            case ['SBD', 'SCD']:
+                consistsOf.get(rxCui).each { String drugComponent_rxCui ->
+                    med.addIngredient(getMedicationIngredientComponent(drugComponent_rxCui))
+                }
+                break
+            case ['BPCK', 'GPCK']:
+                contains.get(rxCui).each { String clinicalDrug_rxCui ->
+                    consistsOf.get(clinicalDrug_rxCui).each { String drugComponent_rxCui ->
+                        med.addIngredient(getMedicationIngredientComponent(drugComponent_rxCui))
+                    }
+                }
+                break
+        }
 
-		switch (tty) {
-			case ['SBD', 'SCD']:
-				consistsOf.get(rxCui).each { String drugComponent_rxCui ->
-					med.addIngredient(getMedicationIngredientComponent(drugComponent_rxCui))
-				}
-				break
-			case ['BPCK', 'GPCK']:
-				contains.get(rxCui).each { String clinicalDrug_rxCui ->
-					consistsOf.get(clinicalDrug_rxCui).each { String drugComponent_rxCui ->
-						med.addIngredient(getMedicationIngredientComponent(drugComponent_rxCui))
-					}
-				}
-				break
-		}
+        med.setStatus(Medication.MedicationStatus.ACTIVE)
+        med.setForm(doseForms.get(hasDoseForm.get(rxCui)))
+        med.setCode(rxNormConcepts.get(rxCui))
+        String medId = "rxNorm-$rxCui"  // use rxNorm-<rxCui> as resource ID
+        med.setId(medId)
+        medications.put(medId, med)
 
-		med.setStatus(Medication.MedicationStatus.ACTIVE)
-		med.setForm(doseForms.get(hasDoseForm.get(rxCui)))
-		med.setCode(rxNormConcepts.get(rxCui))
-		String medId = "rxNorm-$rxCui"  // use rxNorm-<rxCui> as resource ID
-		med.setId(medId)
-		medications.put(medId, med)
+    }
 
-	}
-
-	rxTerms.close()
 	logStop()
 }
 
@@ -381,7 +357,7 @@ Closure writeSearchParameter = {
 readRxNormConceptsFile()
 readRxNormRelationshipsFile()
 readRxNormAttributesFile()
-readRxTermsFile()
+writeMedicationResources()
 writeSearchParameter()
 
 IGenericClient client = initiateConnection()
