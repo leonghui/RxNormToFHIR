@@ -386,5 +386,5 @@ writeSearchParameter()
 
 IGenericClient client = initiateConnection()
 loadBundleToServer(client, parameters, 'SearchParameter')
-loadBundleToServer(client, medications.values(), 'Medication')
-loadBundleToServer(client, substances.values(), 'Substance')
+loadBundleToServer(client, medications.values() as Collection<Medication>, 'Medication')
+loadBundleToServer(client, substances.values() as Collection<Substance>, 'Substance')
