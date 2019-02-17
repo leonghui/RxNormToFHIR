@@ -57,215 +57,215 @@ Map<String, Substance> substances = [:]
 List<SearchParameter> parameters = []
 
 Closure logStart = { String job ->
-	watch.reset().start()
-	print job + ('\t')
+    watch.reset().start()
+    print job + ('\t')
 }
 
 Closure logStop = {
-	println watch.toString()
+    println watch.toString()
 }
 
 Closure readRxNormConceptsFile = {
 
-	logStart('Reading RxNorm concepts file')
+    logStart('Reading RxNorm concepts file')
 
-	FileReader cpcRxnConso = new FileReader("src/main/resources/$RXNORM_FOLDER_NAME/rrf/RXNCONSO.RRF")
+    FileReader cpcRxnConso = new FileReader("src/main/resources/$RXNORM_FOLDER_NAME/rrf/RXNCONSO.RRF")
 
-	cpcRxnConso.eachLine { String line, int number ->
+    cpcRxnConso.eachLine { String line, int number ->
 
-		List<String> tokens = line.split(/\|/, 19)
+        List<String> tokens = line.split(/\|/, 19)
 
-		/* 0	RXCUI
-		 * 1	LAT
-		 * 2	TS
-		 * 3	LUI
-		 * 4	STT
-		 * 5	SUI
-		 * 6	ISPREF
-		 * 7	RXAUI
-		 * 8	SAUI
-		 * 9	SCUI
-		 * 10	SDUI
-		 * 11	SAB
-		 * 12	TTY
-		 * 13	CODE
-		 * 14	STR
-		 * 15	SRL
-		 * 16	SUPPRESS
-		 * 17	CVF
-		 */
+        /* 0	RXCUI
+         * 1	LAT
+         * 2	TS
+         * 3	LUI
+         * 4	STT
+         * 5	SUI
+         * 6	ISPREF
+         * 7	RXAUI
+         * 8	SAUI
+         * 9	SCUI
+         * 10	SDUI
+         * 11	SAB
+         * 12	TTY
+         * 13	CODE
+         * 14	STR
+         * 15	SRL
+         * 16	SUPPRESS
+         * 17	CVF
+         */
 
-		// only consider non-suppressed RxNorm concepts
-		if (tokens.get(11) == "RXNORM" && (tokens.get(16) == "N" || tokens.get(16) == "")) {
-			switch (tokens.get(12)) {
-				case 'DF': // RXCUI, STR
-					CodeableConcept doseForm = new CodeableConcept()
-							.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
-					doseForms.put(tokens.get(0), doseForm)
-					break
-				case 'IN': // RXCUI, STR
-					CodeableConcept ingredient = new CodeableConcept()
-							.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
-					ingredients.put(tokens.get(0), ingredient)
-					break
-				case 'BN': // RXCUI, STR
-					CodeableConcept brandName = new CodeableConcept()
-							.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
-					brandNames.put(tokens.get(0), brandName)
-					break
-				case ['SCD', 'SBD', 'GPCK', 'BPCK']: // RXCUI, STR
-					CodeableConcept concept = new CodeableConcept()
-							.addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
-					rxNormConcepts.put(tokens.get(0), concept)
-					rxNormTty.put(tokens.get(0), tokens.get(12))
-					break
-			}
-		}
-	}
+        // only consider non-suppressed RxNorm concepts
+        if (tokens.get(11) == "RXNORM" && (tokens.get(16) == "N" || tokens.get(16) == "")) {
+            switch (tokens.get(12)) {
+                case 'DF': // RXCUI, STR
+                    CodeableConcept doseForm = new CodeableConcept()
+                            .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+                    doseForms.put(tokens.get(0), doseForm)
+                    break
+                case 'IN': // RXCUI, STR
+                    CodeableConcept ingredient = new CodeableConcept()
+                            .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+                    ingredients.put(tokens.get(0), ingredient)
+                    break
+                case 'BN': // RXCUI, STR
+                    CodeableConcept brandName = new CodeableConcept()
+                            .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+                    brandNames.put(tokens.get(0), brandName)
+                    break
+                case ['SCD', 'SBD', 'GPCK', 'BPCK']: // RXCUI, STR
+                    CodeableConcept concept = new CodeableConcept()
+                            .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+                    rxNormConcepts.put(tokens.get(0), concept)
+                    rxNormTty.put(tokens.get(0), tokens.get(12))
+                    break
+            }
+        }
+    }
 
-	cpcRxnConso.close()
-	logStop()
+    cpcRxnConso.close()
+    logStop()
 }
 
 Closure readRxNormRelationshipsFile = {
-	logStart('Reading RxNorm relationships file')
-	FileReader cpcRxnRel = new FileReader("src/main/resources/$RXNORM_FOLDER_NAME/rrf/RXNREL.RRF")
+    logStart('Reading RxNorm relationships file')
+    FileReader cpcRxnRel = new FileReader("src/main/resources/$RXNORM_FOLDER_NAME/rrf/RXNREL.RRF")
 
-	cpcRxnRel.eachLine { String line, int number ->
+    cpcRxnRel.eachLine { String line, int number ->
 
-		List<String> tokens = line.split(/\|/, 17)
+        List<String> tokens = line.split(/\|/, 17)
 
-		/* 0	RXCUI1
-		 * 1	RXAUI1
-		 * 2	STYPE1
-		 * 3	REL
-		 * 4	RXCUI2
-		 * 5	RXAUI2
-		 * 6	STYPE2
-		 * 7	RELA
-		 * 8	RUI
-		 * 9	SRUI
-		 * 10	SAB
-		 * 11	SL
-		 * 12	DIR
-		 * 13	RG
-		 * 14	SUPPRESS
-		 * 15	CVF
-		 */
+        /* 0	RXCUI1
+         * 1	RXAUI1
+         * 2	STYPE1
+         * 3	REL
+         * 4	RXCUI2
+         * 5	RXAUI2
+         * 6	STYPE2
+         * 7	RELA
+         * 8	RUI
+         * 9	SRUI
+         * 10	SAB
+         * 11	SL
+         * 12	DIR
+         * 13	RG
+         * 14	SUPPRESS
+         * 15	CVF
+         */
 
-		// only consider non-suppressed RxNorm relationships
-		if (tokens.get(10) == "RXNORM" && (tokens.get(14) == "N" || tokens.get(14) == "")) {
-			switch (tokens.get(7)) {
-				case 'has_ingredient':
-					hasIngredient.put(tokens.get(4), tokens.get(0))
-					break
-				case 'consists_of':
-					consistsOf.put(tokens.get(4), tokens.get(0))
-					break
-				case 'has_dose_form':
-					hasDoseForm.put(tokens.get(4), tokens.get(0))
-					break
-				case 'contains':
-					contains.put(tokens.get(4), tokens.get(0))
-			}
-		}
-	}
+        // only consider non-suppressed RxNorm relationships
+        if (tokens.get(10) == "RXNORM" && (tokens.get(14) == "N" || tokens.get(14) == "")) {
+            switch (tokens.get(7)) {
+                case 'has_ingredient':
+                    hasIngredient.put(tokens.get(4), tokens.get(0))
+                    break
+                case 'consists_of':
+                    consistsOf.put(tokens.get(4), tokens.get(0))
+                    break
+                case 'has_dose_form':
+                    hasDoseForm.put(tokens.get(4), tokens.get(0))
+                    break
+                case 'contains':
+                    contains.put(tokens.get(4), tokens.get(0))
+            }
+        }
+    }
 
-	cpcRxnRel.close()
-	logStop()
+    cpcRxnRel.close()
+    logStop()
 }
 
 Closure readRxNormAttributesFile = {
-	logStart('Reading RxNorm attributes file')
-	FileReader cpcRxnSat = new FileReader("src/main/resources/$RXNORM_FOLDER_NAME/rrf/RXNSAT.RRF")
+    logStart('Reading RxNorm attributes file')
+    FileReader cpcRxnSat = new FileReader("src/main/resources/$RXNORM_FOLDER_NAME/rrf/RXNSAT.RRF")
 
-	cpcRxnSat.eachLine { String line, int number ->
+    cpcRxnSat.eachLine { String line, int number ->
 
-		List<String> tokens = line.split(/\|/, 14)
+        List<String> tokens = line.split(/\|/, 14)
 
-		/* 0	RXCUI
-		 * 1	LUI
-		 * 2	SUI
-		 * 3	RXAUI
-		 * 4	STYPE
-		 * 5	CODE
-		 * 6	ATUI
-		 * 7	SATUI
-		 * 8	ATN
-		 * 9	SAB
-		 * 10	ATV
-		 * 11	SUPPRESS
-		 * 12	CVF
-		 */
+        /* 0	RXCUI
+         * 1	LUI
+         * 2	SUI
+         * 3	RXAUI
+         * 4	STYPE
+         * 5	CODE
+         * 6	ATUI
+         * 7	SATUI
+         * 8	ATN
+         * 9	SAB
+         * 10	ATV
+         * 11	SUPPRESS
+         * 12	CVF
+         */
 
-		String attribName = tokens.get(8)
+        String attribName = tokens.get(8)
 
-		// only consider non-suppressed RxNorm attributes
-		if (tokens.get(9) == "RXNORM" && (tokens.get(11) == "N" || tokens.get(11) == "")) {
-			switch (attribName) {
-				case [
-						'RXN_BOSS_STRENGTH_NUM_VALUE',
-						'RXN_BOSS_STRENGTH_NUM_UNIT',
-						'RXN_BOSS_STRENGTH_DENOM_VALUE',
-						'RXN_BOSS_STRENGTH_DENOM_UNIT'
-				]: // RXCUI, ATN, ATV
-					attributes.put(tokens.get(0), attribName, tokens.get(10))
-					break
-			}
-		}
-	}
+        // only consider non-suppressed RxNorm attributes
+        if (tokens.get(9) == "RXNORM" && (tokens.get(11) == "N" || tokens.get(11) == "")) {
+            switch (attribName) {
+                case [
+                        'RXN_BOSS_STRENGTH_NUM_VALUE',
+                        'RXN_BOSS_STRENGTH_NUM_UNIT',
+                        'RXN_BOSS_STRENGTH_DENOM_VALUE',
+                        'RXN_BOSS_STRENGTH_DENOM_UNIT'
+                ]: // RXCUI, ATN, ATV
+                    attributes.put(tokens.get(0), attribName, tokens.get(10))
+                    break
+            }
+        }
+    }
 
-	cpcRxnSat.close()
-	logStop()
+    cpcRxnSat.close()
+    logStop()
 }
 
 Closure<MedicationIngredientComponent> getMedicationIngredientComponent = { String scdc_rxCui ->
-	String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each component has only one ingredient
+    String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each component has only one ingredient
 
-	CodeableConcept ingredient = ingredients.get(ing_rxCui)
+    CodeableConcept ingredient = ingredients.get(ing_rxCui)
 
-	if (ingredient) {
-		MedicationIngredientComponent component = new MedicationIngredientComponent()
+    if (ingredient) {
+        MedicationIngredientComponent component = new MedicationIngredientComponent()
 
-		Substance substance = new Substance()
+        Substance substance = new Substance()
 
-		substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
-		substance.setCode(ingredients.get(ing_rxCui))
+        substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
+        substance.setCode(ingredients.get(ing_rxCui))
 
-		String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
-		substance.setId(substanceId)
+        String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
+        substance.setId(substanceId)
 
-		substances.put(substanceId, substance)
+        substances.put(substanceId, substance)
 
-		// BUG: setItem() in HAPI-FHIR 3.6.0 does not accept Reference as value
-		// Reference substanceReference = new Reference ('Substance' + '/' + substanceId)
-		// component.setItem(substanceReference)
-		component.setItem(ingredients.get(ing_rxCui))
+        // BUG: setItem() in HAPI-FHIR 3.6.0 does not accept Reference as value
+        // Reference substanceReference = new Reference ('Substance' + '/' + substanceId)
+        // component.setItem(substanceReference)
+        component.setItem(ingredients.get(ing_rxCui))
 
-		Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
+        Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
 
-		if (scdcAttributes) {
-			String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
-			Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
-			String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
-			Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
+        if (scdcAttributes) {
+            String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
+            Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
+            String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
+            Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
 
-			Ratio amount = new Ratio()
-					.setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
-					.setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
+            Ratio amount = new Ratio()
+                    .setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
+                    .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
 
-			component.setAmount(amount)
-		}
+            component.setAmount(amount)
+        }
 
-		component.setIsActive(true)
+        component.setIsActive(true)
 
-		return component
+        return component
 
-	}
+    }
 }
 
 Closure writeMedicationResources = {
-	logStart('Writing FHIR Medication resources')
+    logStart('Writing FHIR Medication resources')
 
     rxNormConcepts.keySet().each { rxCui ->
 
@@ -315,56 +315,56 @@ Closure writeMedicationResources = {
 
     }
 
-	logStop()
+    logStop()
 }
 
 Closure<IGenericClient> initiateConnection = {
-	FhirContext ctxDstu3 = FhirContext.forDstu3()
-	ctxDstu3.getRestfulClientFactory().setConnectTimeout(CONNECT_TIMEOUT_SEC * 1000)
-	ctxDstu3.getRestfulClientFactory().setSocketTimeout(SOCKET_TIMEOUT_SEC * 1000)
+    FhirContext ctxDstu3 = FhirContext.forDstu3()
+    ctxDstu3.getRestfulClientFactory().setConnectTimeout(CONNECT_TIMEOUT_SEC * 1000)
+    ctxDstu3.getRestfulClientFactory().setSocketTimeout(SOCKET_TIMEOUT_SEC * 1000)
 
-	return ctxDstu3.newRestfulGenericClient(FHIR_SERVER_URL)
+    return ctxDstu3.newRestfulGenericClient(FHIR_SERVER_URL)
 }
 
 Closure loadBundleToServer = { IGenericClient newClient, Collection<? extends Resource> resources, String resourceType ->
-	logStart("Loading $resourceType bundle (size: ${resources.size()}) to server")
-	println()
+    logStart("Loading $resourceType bundle (size: ${resources.size()}) to server")
+    println()
 
-	int total = resources.size()
-	resources.collate(1000).each { batch ->
-		Bundle input = new Bundle()
+    int total = resources.size()
+    resources.collate(1000).each { batch ->
+        Bundle input = new Bundle()
 
-		batch.each {
-			input.setType(BundleType.TRANSACTION)
-			input.addEntry()
-					.setResource(it)
-					.getRequest()
-					.setUrlElement(new UriType("$resourceType/$it.id"))
-					.setMethod(HTTPVerb.PUT) // update resource if exists
-		}
+        batch.each {
+            input.setType(BundleType.TRANSACTION)
+            input.addEntry()
+                    .setResource(it)
+                    .getRequest()
+                    .setUrlElement(new UriType("$resourceType/$it.id"))
+                    .setMethod(HTTPVerb.PUT) // update resource if exists
+        }
 
-		Bundle response = newClient.transaction().withBundle(input).execute()
+        Bundle response = newClient.transaction().withBundle(input).execute()
 
-		assert response.getType() == BundleType.TRANSACTIONRESPONSE
+        assert response.getType() == BundleType.TRANSACTIONRESPONSE
 
-		total = total - batch.size()
-		println(total + " remaining")
-	}
+        total = total - batch.size()
+        println(total + " remaining")
+    }
 
-	logStop()
+    logStop()
 }
 
 Closure writeSearchParameter = {
-	SearchParameter brandSp = new SearchParameter()
-	brandSp.addBase('Medication')
-			.setCode('brand')
-			.setType(Enumerations.SearchParamType.STRING)
-			.setStatus(Enumerations.PublicationStatus.ACTIVE)
-			.setXpathUsage(SearchParameter.XPathUsageType.NORMAL)
-			.setExpression("Medication.extension('" + FHIR_SERVER_URL + "/StructureDefinition/brand')")
-			.setTitle('Brand')
+    SearchParameter brandSp = new SearchParameter()
+    brandSp.addBase('Medication')
+            .setCode('brand')
+            .setType(Enumerations.SearchParamType.STRING)
+            .setStatus(Enumerations.PublicationStatus.ACTIVE)
+            .setXpathUsage(SearchParameter.XPathUsageType.NORMAL)
+            .setExpression("Medication.extension('" + FHIR_SERVER_URL + "/StructureDefinition/brand')")
+            .setTitle('Brand')
 
-	parameters.add(brandSp)
+    parameters.add(brandSp)
 }
 
 readRxNormConceptsFile()
