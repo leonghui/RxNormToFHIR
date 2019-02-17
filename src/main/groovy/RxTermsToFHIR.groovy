@@ -15,7 +15,7 @@ import org.hl7.fhir.dstu3.model.Medication.MedicationIngredientComponent
 Stopwatch watch = Stopwatch.createStarted()
 
 int CONNECT_TIMEOUT_SEC = 10
-int SOCKET_TIMEOUT_SEC = 90
+int SOCKET_TIMEOUT_SEC = 180
 
 String FHIR_SERVER_URL = 'http://<server>:<port>/baseDstu3'
 String RXNORM_SYSTEM = 'http://www.nlm.nih.gov/research/umls/rxnorm'
@@ -327,10 +327,11 @@ Closure<IGenericClient> initiateConnection = {
 }
 
 Closure loadBundleToServer = { IGenericClient newClient, Collection<? extends Resource> resources, String resourceType ->
-	logStart("Loading $resourceType bundle to server")
+	logStart("Loading $resourceType bundle (size: ${resources.size()}) to server")
+	println()
 
+	int total = resources.size()
 	resources.collate(1000).each { batch ->
-
 		Bundle input = new Bundle()
 
 		batch.each {
@@ -345,6 +346,9 @@ Closure loadBundleToServer = { IGenericClient newClient, Collection<? extends Re
 		Bundle response = newClient.transaction().withBundle(input).execute()
 
 		assert response.getType() == BundleType.TRANSACTIONRESPONSE
+
+		total = total - batch.size()
+		println(total + " remaining")
 	}
 
 	logStop()
@@ -368,6 +372,7 @@ readRxNormRelationshipsFile()
 readRxNormAttributesFile()
 writeMedicationResources()
 writeSearchParameter()
+
 
 IGenericClient client = initiateConnection()
 loadBundleToServer(client, parameters, 'SearchParameter')
