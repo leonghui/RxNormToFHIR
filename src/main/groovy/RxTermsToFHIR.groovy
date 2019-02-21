@@ -45,6 +45,10 @@ Table<String, String, String> attributes = HashBasedTable.create()
 // rxCui, TTY
 Map<String, String> rxNormTty = [:]
 
+// rxNorm synonyms
+// rxCui, Term
+SetMultimap<String, String> rxNormSynonyms = HashMultimap.create()
+
 // data structures to store FHIR resources
 // FHIR ID, Resource
 Map<String, Medication> medications = [:]
@@ -117,6 +121,15 @@ Closure readRxNormConceptsFile = {
                     rxNormConcepts.put(tokens.get(0), concept)
                     rxNormTty.put(tokens.get(0), tokens.get(12))
                     break
+            }
+
+            // only consider non-suppressed synonyms
+            if (tokens.get(16) == "N" || tokens.get(16) == "") {
+                switch (tokens.get(12)) {
+                    case 'SY': // RXCUI, STR
+                        rxNormSynonyms.put(tokens.get(0), tokens.get(14))
+                        break
+                }
             }
         }
     }
@@ -369,6 +382,9 @@ Closure writeMedicationResources = {
 
         Reference medReference = new Reference(med)
         medKnowledge.setAssociatedMedication(Collections.singletonList(medReference)) // link to Medication
+
+        List<StringType> synonyms = rxNormSynonyms.get(rxCui).collect { new StringType (it) }
+        medKnowledge.setSynonym(synonyms) // load RxNorm synonyms into MedicationKnowledge
 
         medKnowledge.setStatus("active")
         medKnowledge.setDoseForm(doseForms.get(hasDoseForm.get(rxCui)))
