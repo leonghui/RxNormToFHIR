@@ -33,9 +33,9 @@ Map<String, String> hasDoseForm = [:]
 
 // rxNorm one-to-many relationships
 // source rxCui, target rxCui
-Multimap<String, String> hasIngredient = HashMultimap.create()
-Multimap<String, String> consistsOf = HashMultimap.create()
-Multimap<String, String> contains = HashMultimap.create()
+SetMultimap<String, String> hasIngredient = HashMultimap.create()
+SetMultimap<String, String> consistsOf = HashMultimap.create()
+SetMultimap<String, String> contains = HashMultimap.create()
 
 // rxNorm attributes
 // rxCui, ATN, ATV
