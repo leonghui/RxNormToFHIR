@@ -123,15 +123,17 @@ Closure readRxNormConceptsFile = {
                     break
             }
 
-            // only consider non-suppressed synonyms
-            if (tokens.get(16) == "N" || tokens.get(16) == "") {
-                switch (tokens.get(12)) {
-                    case 'SY': // RXCUI, STR
-                        rxNormSynonyms.put(tokens.get(0), tokens.get(14))
-                        break
-                }
+        }
+
+        // only consider non-suppressed synonyms
+        if (tokens.get(16) == "N" || tokens.get(16) == "") {
+            switch (tokens.get(12)) {
+                case 'SY': // RXCUI, STR
+                    rxNormSynonyms.put(tokens.get(0), tokens.get(14))
+                    break
             }
         }
+
     }
 
     cpcRxnConso.close()
@@ -247,6 +249,15 @@ Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui,
         substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
         substance.setCode(ingredients.get(ing_rxCui))
 
+        List<StringType> synonyms = rxNormSynonyms.get(ing_rxCui).collect { new StringType(it) }.toList()
+
+        synonyms.each {
+            Extension synonymExtension = new Extension()
+                    .setUrl("$FHIR_SERVER_URL/StructureDefinition/synonym")
+                    .setValue(it)
+            substance.addExtension(synonymExtension)
+        }
+
         String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
         substance.setId(substanceId)
 
@@ -323,6 +334,7 @@ Closure writeMedicationResources = {
                         .setUrl("$FHIR_SERVER_URL/StructureDefinition/brand")
                         .setValue(new StringType(bn_term))
                 med.addExtension(brandExtension)
+
                 break
             case ['BPCK']:
                 //med.setIsBrand(true)    // BPCKs do not have BNs
@@ -383,7 +395,7 @@ Closure writeMedicationResources = {
         Reference medReference = new Reference(med)
         medKnowledge.setAssociatedMedication(Collections.singletonList(medReference)) // link to Medication
 
-        List<StringType> synonyms = rxNormSynonyms.get(rxCui).collect { new StringType (it) }
+        List<StringType> synonyms = rxNormSynonyms.get(rxCui).collect { new StringType(it) }
         medKnowledge.setSynonym(synonyms) // load RxNorm synonyms into MedicationKnowledge
 
         medKnowledge.setStatus("active")
@@ -443,8 +455,21 @@ Closure writeSearchParameter = {
             .setXpathUsage(SearchParameter.XPathUsageType.NORMAL)
             .setExpression("Medication.extension('" + FHIR_SERVER_URL + "/StructureDefinition/brand')")
             .setTitle('Brand')
+            .setId('brand')
 
     parameters.add(brandSp)
+
+    SearchParameter synonymSp = new SearchParameter()
+    synonymSp.addBase('Substance')
+            .setCode('synonym')
+            .setType(Enumerations.SearchParamType.STRING)
+            .setStatus(Enumerations.PublicationStatus.ACTIVE)
+            .setXpathUsage(SearchParameter.XPathUsageType.NORMAL)
+            .setExpression("Substance.extension('" + FHIR_SERVER_URL + "/StructureDefinition/synonym')")
+            .setTitle('Synonym')
+            .setId('synonym')
+
+    parameters.add(synonymSp)
 }
 
 readRxNormConceptsFile()
