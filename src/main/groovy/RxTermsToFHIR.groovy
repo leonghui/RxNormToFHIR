@@ -239,10 +239,11 @@ Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui,
 
         substances.put(substanceId, substance)
 
-        // BUG: setItem() in HAPI-FHIR 3.6.0 does not accept Reference as value
-        // Reference substanceReference = new Reference ('Substance' + '/' + substanceId)
-        // component.setItem(substanceReference)
-        component.setItem(ingredients.get(ing_rxCui))
+        if (component instanceof MedicationIngredientComponent) {
+            component = (MedicationIngredientComponent) component
+
+            Reference substanceReference = new Reference(substance)
+            component.setItem(substanceReference)
 
             Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
 
