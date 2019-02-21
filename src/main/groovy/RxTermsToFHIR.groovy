@@ -3,14 +3,11 @@ package main.groovy
 import ca.uhn.fhir.context.FhirContext
 import ca.uhn.fhir.rest.client.api.IGenericClient
 import com.google.common.base.Stopwatch
-import com.google.common.collect.HashBasedTable
-import com.google.common.collect.HashMultimap
-import com.google.common.collect.Multimap
-import com.google.common.collect.Table
-import org.hl7.fhir.dstu3.model.*
-import org.hl7.fhir.dstu3.model.Bundle.BundleType
-import org.hl7.fhir.dstu3.model.Bundle.HTTPVerb
-import org.hl7.fhir.dstu3.model.Medication.MedicationIngredientComponent
+import com.google.common.collect.*
+import org.hl7.fhir.r4.model.*
+import org.hl7.fhir.r4.model.Bundle.BundleType
+import org.hl7.fhir.r4.model.Bundle.HTTPVerb
+import org.hl7.fhir.r4.model.Medication.MedicationIngredientComponent
 
 Stopwatch watch = Stopwatch.createStarted()
 
@@ -51,6 +48,7 @@ Map<String, String> rxNormTty = [:]
 // data structures to store FHIR resources
 // FHIR ID, Resource
 Map<String, Medication> medications = [:]
+Map<String, MedicationKnowledge> medicationKnowledgeMap = [:]
 Map<String, Substance> substances = [:]
 
 // data structures to store custom search parameters
@@ -219,13 +217,17 @@ Closure readRxNormAttributesFile = {
     logStop()
 }
 
-Closure<MedicationIngredientComponent> getMedicationIngredientComponent = { String scdc_rxCui ->
+Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui, boolean forKnowledge ->
     String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each component has only one ingredient
 
     CodeableConcept ingredient = ingredients.get(ing_rxCui)
 
-    if (ingredient) {
-        MedicationIngredientComponent component = new MedicationIngredientComponent()
+    BackboneElement component; if (ingredient) {
+        if (forKnowledge) {
+            component = new MedicationKnowledge.MedicationKnowledgeIngredientComponent()
+        } else {
+            component = new MedicationIngredientComponent()
+        }
 
         Substance substance = new Substance()
 
@@ -242,22 +244,46 @@ Closure<MedicationIngredientComponent> getMedicationIngredientComponent = { Stri
         // component.setItem(substanceReference)
         component.setItem(ingredients.get(ing_rxCui))
 
-        Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
+            Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
 
-        if (scdcAttributes) {
-            String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
-            Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
-            String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
-            Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
+            if (scdcAttributes) {
+                String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
+                Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
+                String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
+                Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
 
-            Ratio amount = new Ratio()
-                    .setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
-                    .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
+                Ratio amount = new Ratio()
+                        .setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
+                        .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
 
-            component.setAmount(amount)
+                component.setStrength(amount)
+            }
+
+            component.setIsActive(true)
+
+        } else if (component instanceof MedicationKnowledge.MedicationKnowledgeIngredientComponent) {
+            component = (MedicationKnowledge.MedicationKnowledgeIngredientComponent) component
+
+            Reference substanceReference = new Reference(substance)
+            component.setItem(substanceReference)
+
+            Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
+
+            if (scdcAttributes) {
+                String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
+                Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
+                String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
+                Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
+
+                Ratio amount = new Ratio()
+                        .setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
+                        .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
+
+                component.setStrength(amount)
+            }
+
+            component.setIsActive(true)
         }
-
-        component.setIsActive(true)
 
         return component
 
@@ -270,12 +296,13 @@ Closure writeMedicationResources = {
     rxNormConcepts.keySet().each { rxCui ->
 
         Medication med = new Medication()
+        MedicationKnowledge medKnowledge = new MedicationKnowledge()
 
         String tty = rxNormTty.get(rxCui)
 
         switch (tty) {
             case ['SBD']:
-                med.setIsBrand(true)
+                //med.setIsBrand(true)
                 String bn_rxCui = hasIngredient.get(rxCui).first()    // SBDs have only one BN
                 String bn_term = brandNames.get(bn_rxCui).getCodingFirstRep().getDisplay()
                 Extension brandExtension = new Extension()
@@ -284,23 +311,48 @@ Closure writeMedicationResources = {
                 med.addExtension(brandExtension)
                 break
             case ['BPCK']:
-                med.setIsBrand(true)    // BPCKs do not have BNs
+                //med.setIsBrand(true)    // BPCKs do not have BNs
                 break
             case ['SCD', 'GPCK']:
-                med.setIsBrand(false)
+                //med.setIsBrand(false)
                 break
         }
 
         switch (tty) {
             case ['SBD', 'SCD']:
                 consistsOf.get(rxCui).each { String drugComponent_rxCui ->
-                    med.addIngredient(getMedicationIngredientComponent(drugComponent_rxCui))
+
+                    MedicationIngredientComponent medIngredientComponent =
+                            (MedicationIngredientComponent) getMedicationIngredientComponent(
+                                    drugComponent_rxCui, false
+                            )
+
+                    med.addIngredient(medIngredientComponent)
+
+                    MedicationKnowledge.MedicationKnowledgeIngredientComponent medKnowledgeIngredientComponent =
+                            (MedicationKnowledge.MedicationKnowledgeIngredientComponent) getMedicationIngredientComponent(
+                                    drugComponent_rxCui, true
+                            )
+
+                    medKnowledge.addIngredient(medKnowledgeIngredientComponent)
                 }
                 break
             case ['BPCK', 'GPCK']:
                 contains.get(rxCui).each { String clinicalDrug_rxCui ->
                     consistsOf.get(clinicalDrug_rxCui).each { String drugComponent_rxCui ->
-                        med.addIngredient(getMedicationIngredientComponent(drugComponent_rxCui))
+                        MedicationIngredientComponent medIngredientComponent =
+                                (MedicationIngredientComponent) getMedicationIngredientComponent(
+                                        drugComponent_rxCui, false
+                                )
+
+                        med.addIngredient(medIngredientComponent)
+
+                        MedicationKnowledge.MedicationKnowledgeIngredientComponent medKnowledgeIngredientComponent =
+                                (MedicationKnowledge.MedicationKnowledgeIngredientComponent) getMedicationIngredientComponent(
+                                        drugComponent_rxCui, true
+                                )
+
+                        medKnowledge.addIngredient(medKnowledgeIngredientComponent)
                     }
                 }
                 break
@@ -309,9 +361,20 @@ Closure writeMedicationResources = {
         med.setStatus(Medication.MedicationStatus.ACTIVE)
         med.setForm(doseForms.get(hasDoseForm.get(rxCui)))
         med.setCode(rxNormConcepts.get(rxCui))
-        String medId = "rxNorm-$rxCui"  // use rxNorm-<rxCui> as resource ID
+
+        String medId = "rxNorm-$rxCui"    // use rxNorm-<rxCui> as resource ID
         med.setId(medId)
         medications.put(medId, med)
+
+        Reference medReference = new Reference(med)
+        medKnowledge.setAssociatedMedication(Collections.singletonList(medReference)) // link to Medication
+
+        medKnowledge.setStatus("active")
+        medKnowledge.setDoseForm(doseForms.get(hasDoseForm.get(rxCui)))
+        medKnowledge.setCode(rxNormConcepts.get(rxCui)) // MedicationKnowledge uses the same identifier as Medication
+
+        medKnowledge.setId(medId)    // use rxNorm-<rxCui> as resource ID
+        medicationKnowledgeMap.put(medId, medKnowledge)
 
     }
 
@@ -319,11 +382,11 @@ Closure writeMedicationResources = {
 }
 
 Closure<IGenericClient> initiateConnection = {
-    FhirContext ctxDstu3 = FhirContext.forDstu3()
-    ctxDstu3.getRestfulClientFactory().setConnectTimeout(CONNECT_TIMEOUT_SEC * 1000)
-    ctxDstu3.getRestfulClientFactory().setSocketTimeout(SOCKET_TIMEOUT_SEC * 1000)
+    FhirContext ctxR4 = FhirContext.forR4()
+    ctxR4.getRestfulClientFactory().setConnectTimeout(CONNECT_TIMEOUT_SEC * 1000)
+    ctxR4.getRestfulClientFactory().setSocketTimeout(SOCKET_TIMEOUT_SEC * 1000)
 
-    return ctxDstu3.newRestfulGenericClient(FHIR_SERVER_URL)
+    return ctxR4.newRestfulGenericClient(FHIR_SERVER_URL)
 }
 
 Closure loadBundleToServer = { IGenericClient newClient, Collection<? extends Resource> resources, String resourceType ->
@@ -376,5 +439,7 @@ writeSearchParameter()
 
 IGenericClient client = initiateConnection()
 loadBundleToServer(client, parameters, 'SearchParameter')
-loadBundleToServer(client, medications.values() as Collection<Medication>, 'Medication')
 loadBundleToServer(client, substances.values() as Collection<Substance>, 'Substance')
+loadBundleToServer(client, medications.values() as Collection<Medication>, 'Medication')
+loadBundleToServer(client, medicationKnowledgeMap.values() as Collection<MedicationKnowledge>, 'MedicationKnowledge')
+
