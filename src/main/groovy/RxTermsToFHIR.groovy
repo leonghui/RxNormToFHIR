@@ -339,20 +339,12 @@ Closure writeMedicationResources = {
 
         switch (tty) {
             case ['SBD']:
-                //med.setIsBrand(true)
                 String bn_rxCui = hasIngredient.get(rxCui).first()    // SBDs have only one BN
                 String bn_term = brandNames.get(bn_rxCui).getCodingFirstRep().getDisplay()
                 Extension brandExtension = new Extension()
                         .setUrl("$FHIR_SERVER_URL/StructureDefinition/brand")
                         .setValue(new StringType(bn_term))
                 med.addExtension(brandExtension)
-
-                break
-            case ['BPCK']:
-                //med.setIsBrand(true)    // BPCKs do not have BNs
-                break
-            case ['SCD', 'GPCK']:
-                //med.setIsBrand(false)
                 break
         }
 
