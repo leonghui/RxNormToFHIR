@@ -236,6 +236,9 @@ Closure readRxNormAttributesFile = {
                 ]: // RXCUI, ATN, ATV
                     attributes.put(tokens.get(0), attribName, tokens.get(10))
                     break
+                case 'RXN_STRENGTH':
+                    attributes.put(tokens.get(0), attribName, tokens.get(10))
+                    break
             }
         }
     }
@@ -244,12 +247,61 @@ Closure readRxNormAttributesFile = {
     logStop()
 }
 
+Closure<Ratio> getAmount = { Map<String, String> scdcAttributes ->
+    Ratio amount = new Ratio()
+
+    if (scdcAttributes) {
+        if (scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT') &&
+                scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE') &&
+                scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT') &&
+                scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE')) {
+
+            String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
+            Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
+            String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
+            Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
+
+            amount.setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
+                  .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
+
+        } else if (scdcAttributes.get('RXN_STRENGTH')) {
+
+            String strength = scdcAttributes.get('RXN_STRENGTH')
+
+            Double numeratorValue = strength.split(" ")[0].toDouble()
+
+            List<String> unitDenominator = strength.split(" ")[1].split("/").toList()
+
+            String numeratorUnit = unitDenominator.get(0)
+
+            if (unitDenominator.size() == 2) {
+                String denominatorUnit = unitDenominator.get(1)
+                Double denominatorValue = 1
+
+                amount.setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
+                        .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
+            } else {
+
+                String denominatorUnit = "1"
+                Double denominatorValue = 1
+
+                amount.setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
+                      .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
+            }
+        }
+    }
+
+    return amount
+}
+
 Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui, boolean forKnowledge ->
     String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each component has only one ingredient
 
     CodeableConcept ingredient = ingredients.get(ing_rxCui)
 
-    BackboneElement component; if (ingredient) {
+    BackboneElement component
+
+    if (ingredient) {
         if (forKnowledge) {
             component = new MedicationKnowledge.MedicationKnowledgeIngredientComponent()
         } else {
@@ -283,18 +335,7 @@ Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui,
 
             Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
 
-            if (scdcAttributes) {
-                String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
-                Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
-                String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
-                Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
-
-                Ratio amount = new Ratio()
-                        .setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
-                        .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
-
-                component.setStrength(amount)
-            }
+            component.setStrength(getAmount(scdcAttributes))
 
             component.setIsActive(true)
 
@@ -306,18 +347,7 @@ Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui,
 
             Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
 
-            if (scdcAttributes) {
-                String denominatorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_UNIT')
-                Double denominatorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_DENOM_VALUE').toDouble()
-                String numeratorUnit = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_UNIT')
-                Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
-
-                Ratio amount = new Ratio()
-                        .setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
-                        .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
-
-                component.setStrength(amount)
-            }
+            component.setStrength(getAmount(scdcAttributes))
 
             component.setIsActive(true)
         }
