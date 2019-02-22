@@ -3,7 +3,10 @@ package main.groovy
 import ca.uhn.fhir.context.FhirContext
 import ca.uhn.fhir.rest.client.api.IGenericClient
 import com.google.common.base.Stopwatch
-import com.google.common.collect.*
+import com.google.common.collect.HashBasedTable
+import com.google.common.collect.HashMultimap
+import com.google.common.collect.SetMultimap
+import com.google.common.collect.Table
 import org.hl7.fhir.r4.model.*
 import org.hl7.fhir.r4.model.Bundle.BundleType
 import org.hl7.fhir.r4.model.Bundle.HTTPVerb
@@ -37,6 +40,7 @@ SetMultimap<String, String> hasIngredient = HashMultimap.create()
 SetMultimap<String, String> consistsOf = HashMultimap.create()
 SetMultimap<String, String> contains = HashMultimap.create()
 SetMultimap<String, String> isa = HashMultimap.create()
+SetMultimap<String, String> hasDoseFormGroup = HashMultimap.create()
 
 // rxNorm attributes
 // rxCui, ATN, ATV
@@ -179,11 +183,15 @@ Closure readRxNormRelationshipsFile = {
                 case 'has_dose_form':
                     hasDoseForm.put(tokens.get(4), tokens.get(0))
                     break
+                case 'has_doseformgroup':
+                    hasDoseFormGroup.put(tokens.get(4), tokens.get(0))
+                    break
                 case 'contains':
                     contains.put(tokens.get(4), tokens.get(0))
                     break
                 case 'isa':
                     isa.put(tokens.get(4), tokens.get(0))
+                    break
             }
         }
     }
@@ -389,7 +397,13 @@ Closure writeMedicationResources = {
         }
 
         med.setStatus(Medication.MedicationStatus.ACTIVE)
-        med.setForm(doseForms.get(hasDoseForm.get(rxCui)))
+
+        String doseFormId = hasDoseForm.get(rxCui) ?: hasDoseFormGroup.get(rxCui)
+
+        if (doseFormId) {
+            med.setForm(doseForms.get(doseFormId))
+        }
+
         med.setCode(rxNormConcepts.get(rxCui))
 
         String medId = "rxNorm-$rxCui"    // use rxNorm-<rxCui> as resource ID
