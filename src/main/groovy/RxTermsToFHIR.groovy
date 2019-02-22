@@ -396,7 +396,10 @@ Closure writeMedicationResources = {
         medKnowledge.setAssociatedMedication(Collections.singletonList(medReference)) // link to Medication
 
         List<StringType> synonyms = rxNormSynonyms.get(rxCui).collect { new StringType(it) }
-        medKnowledge.setSynonym(synonyms) // load RxNorm synonyms into MedicationKnowledge
+
+        if (synonyms) {
+            medKnowledge.setSynonym(synonyms) // load RxNorm synonyms into MedicationKnowledge
+        }
 
         medKnowledge.setStatus("active")
         medKnowledge.setDoseForm(doseForms.get(hasDoseForm.get(rxCui)))
