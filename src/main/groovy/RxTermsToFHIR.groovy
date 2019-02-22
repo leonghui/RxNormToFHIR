@@ -36,6 +36,7 @@ Map<String, String> hasDoseForm = [:]
 SetMultimap<String, String> hasIngredient = HashMultimap.create()
 SetMultimap<String, String> consistsOf = HashMultimap.create()
 SetMultimap<String, String> contains = HashMultimap.create()
+SetMultimap<String, String> isa = HashMultimap.create()
 
 // rxNorm attributes
 // rxCui, ATN, ATV
@@ -115,7 +116,7 @@ Closure readRxNormConceptsFile = {
                             .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
                     brandNames.put(tokens.get(0), brandName)
                     break
-                case ['SCD', 'SBD', 'GPCK', 'BPCK']: // RXCUI, STR
+                case ['SCD', 'SBD', 'GPCK', 'BPCK', 'SCDF', 'SBDF']: // RXCUI, STR
                     CodeableConcept concept = new CodeableConcept()
                             .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
                     rxNormConcepts.put(tokens.get(0), concept)
@@ -180,6 +181,9 @@ Closure readRxNormRelationshipsFile = {
                     break
                 case 'contains':
                     contains.put(tokens.get(4), tokens.get(0))
+                    break
+                case 'isa':
+                    isa.put(tokens.get(4), tokens.get(0))
             }
         }
     }
@@ -392,8 +396,15 @@ Closure writeMedicationResources = {
         med.setId(medId)
         medications.put(medId, med)
 
-        Reference medReference = new Reference(med)
-        medKnowledge.setAssociatedMedication(Collections.singletonList(medReference)) // link to Medication
+
+        // store associated parent concepts (SCDF/SBDF) in MedicationKnowledge
+        Set<String> parentIds = isa.get(rxCui)
+
+        if (parentIds) {
+            medKnowledge.setAssociatedMedication(
+                    parentIds.collect { new Reference("Medication/rxNorm-$it") }
+            )
+        }
 
         List<StringType> synonyms = rxNormSynonyms.get(rxCui).collect { new StringType(it) }
 
@@ -487,4 +498,3 @@ loadBundleToServer(client, parameters, 'SearchParameter')
 loadBundleToServer(client, substances.values() as Collection<Substance>, 'Substance')
 loadBundleToServer(client, medications.values() as Collection<Medication>, 'Medication')
 loadBundleToServer(client, medicationKnowledgeMap.values() as Collection<MedicationKnowledge>, 'MedicationKnowledge')
-
