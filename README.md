@@ -23,38 +23,39 @@ The goal is to create a FHIR server to be used as a dictionary backend for natur
 
 Script output:
 ```
-Reading RxNorm concepts file	3.106 s
-Reading RxNorm relationships file	11.25 s
-Reading RxNorm attributes file	12.49 s
-Writing FHIR Medication resources	542.8 ms
+Reading RxNorm concepts file	4.421 s
+Reading RxNorm relationships file	18.02 s
+Reading RxNorm attributes file	18.65 s
+Writing FHIR Medication resources	3.931 s
 [main] INFO ca.uhn.fhir.util.VersionUtil - HAPI FHIR version 3.7.0 - Rev f2560071c8
-[main] INFO ca.uhn.fhir.context.FhirContext - Creating new FHIR context for FHIR version [DSTU3]
+[main] INFO ca.uhn.fhir.context.FhirContext - Creating new FHIR context for FHIR version [R4]
 [main] INFO ca.uhn.fhir.util.XmlUtil - FHIR XML procesing will use StAX implementation 'Java Runtime Environment' version '1.8.0_201'
-Loading SearchParameter bundle (size: 1) to server	
+Loading SearchParameter bundle (size: 2) to server
 0 remaining
-12.37 s
-Loading Medication bundle (size: 29743) to server	
-28743 remaining
+8.971 s
+Loading Substance bundle (size: 3326) to server
+2326 remaining
 <snip>
 0 remaining
-27.86 min
-Loading Substance bundle (size: 3346) to server	
-2346 remaining
-1346 remaining
-346 remaining
+55.79 s
+Loading Medication bundle (size: 45083) to server
+44083 remaining
+<snip>
 0 remaining
-1.828 min
-
-Process finished with exit code 0
-
-Loading Substance bundle to server    278.5 ms
+Loading MedicationKnowledge bundle (size: 45083) to server
+44083 remaining
+<snip>
+0 remaining
+21.60 min
 
 ```
 
 TODO
 - [x] Load RxNorm ingredients as FHIR Substance resources
-- [ ] Load RxNorm parent concepts as extensions in FHIR Medication resources
-- [x] Load RxNorm brand names as extensions in FHIR Medication resources
+- [x] Load RxNorm ingredient synonyms as extensions in FHIR Substance resources
+- [x] Load RxNorm drug brand names as extensions in FHIR Medication resources
+- [x] Load RxNorm drug parent concepts in FHIR MedicationKnowledge resources
+- [x] Load RxNorm drug synonyms in FHIR MedicationKnowledge resources
 
 See also:
 [MedServe][]
