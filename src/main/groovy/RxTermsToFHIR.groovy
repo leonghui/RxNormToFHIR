@@ -145,7 +145,7 @@ Closure readRxNormConceptsFile = {
         if (tokens.get(16) == "N" || tokens.get(16) == "") {
             if (tokens.get(11) != "DRUGBANK") {
                 switch (tokens.get(12)) {
-                    case ['SY', 'PSN']:// RXCUI, STR
+                    case ['SY', 'PSN', 'PT']:// RXCUI, STR
                         rxNormSynonyms.put(tokens.get(0), tokens.get(14))
                         break
                 }
