@@ -233,6 +233,8 @@ Closure readRxNormAttributesFile = {
         // only consider non-suppressed RxNorm attributes
         if (tokens.get(9) == "RXNORM" && (tokens.get(11) == "N" || tokens.get(11) == "")) {
             switch (attribName) {
+                // New basis of strength attributes since September 2018 release
+                // https://www.nlm.nih.gov/pubs/techbull/so18/brief/so18_rxnorm_boss.html
                 case [
                         'RXN_BOSS_STRENGTH_NUM_VALUE',
                         'RXN_BOSS_STRENGTH_NUM_UNIT',
@@ -241,7 +243,7 @@ Closure readRxNormAttributesFile = {
                 ]: // RXCUI, ATN, ATV
                     attributes.put(tokens.get(0), attribName, tokens.get(10))
                     break
-                case 'RXN_STRENGTH':
+                case 'RXN_STRENGTH': // RXCUI, ATN, ATV
                     attributes.put(tokens.get(0), attribName, tokens.get(10))
                     break
             }
