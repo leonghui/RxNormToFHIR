@@ -12,7 +12,15 @@ import org.hl7.fhir.r4.model.Bundle.BundleType
 import org.hl7.fhir.r4.model.Bundle.HTTPVerb
 import org.hl7.fhir.r4.model.Medication.MedicationIngredientComponent
 
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+
 Stopwatch watch = Stopwatch.createStarted()
+
+boolean isForLocalTesting = true
+
+String outputFolder = System.getProperty("user.dir") + File.separator + "target"
 
 int CONNECT_TIMEOUT_SEC = 10
 int SOCKET_TIMEOUT_SEC = 180
@@ -538,6 +546,22 @@ Closure writeSearchParameter = {
     parameters.add(synonymSp)
 }
 
+Closure writeBundleToFile = { FhirContext context, String folder, Collection<? extends Resource> resources, String resourceType ->
+    Path path = Paths.get(folder + File.separator + resourceType + ".json")
+    BufferedWriter writer = Files.newBufferedWriter(path)
+
+    Bundle output = new Bundle()
+
+    resources.each {
+        output.addEntry().setResource(it)
+    }
+
+    context.newJsonParser().setPrettyPrint(true).encodeResourceToWriter(output, writer)
+
+    writer.flush()
+    writer.close()
+}
+
 readRxNormConceptsFile()
 readRxNormRelationshipsFile()
 readRxNormAttributesFile()
@@ -545,8 +569,20 @@ writeMedicationResources()
 writeSearchParameter()
 
 
-IGenericClient client = initiateConnection()
-loadBundleToServer(client, parameters, 'SearchParameter')
-loadBundleToServer(client, substances.values() as Collection<Substance>, 'Substance')
-loadBundleToServer(client, medications.values() as Collection<Medication>, 'Medication')
-loadBundleToServer(client, medicationKnowledgeMap.values() as Collection<MedicationKnowledge>, 'MedicationKnowledge')
+if (isForLocalTesting) {
+    writeBundleToFile(context, outputFolder, substances.values() as Collection<Substance>, 'Substance')
+    writeBundleToFile(context, outputFolder, medications.values() as Collection<Substance>, 'Medication')
+    writeBundleToFile(context, outputFolder, medicationKnowledgeMap.values() as Collection<Substance>, 'MedicationKnowledge')
+} else {
+
+    IGenericClient client = initiateConnection(context)
+    loadBundleToServer(client, parameters, 'SearchParameter')
+    loadBundleToServer(client, substances.values() as Collection<Substance>, 'Substance')
+    loadBundleToServer(client, medications.values() as Collection<Medication>, 'Medication')
+    loadBundleToServer(client, medicationKnowledgeMap.values() as Collection<MedicationKnowledge>, 'MedicationKnowledge')
+
+}
+
+println("Units of measure detected: " + unitsOfMeasure.unique().sort())
+
+println("Total time taken " + watch.stop().toString())
