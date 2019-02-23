@@ -484,12 +484,11 @@ Closure writeMedicationResources = {
     logStop()
 }
 
-Closure<IGenericClient> initiateConnection = {
-    FhirContext ctxR4 = FhirContext.forR4()
-    ctxR4.getRestfulClientFactory().setConnectTimeout(CONNECT_TIMEOUT_SEC * 1000)
-    ctxR4.getRestfulClientFactory().setSocketTimeout(SOCKET_TIMEOUT_SEC * 1000)
+Closure<IGenericClient> initiateConnection = { FhirContext context ->
+    context.getRestfulClientFactory().setConnectTimeout(CONNECT_TIMEOUT_SEC * 1000)
+    context.getRestfulClientFactory().setSocketTimeout(SOCKET_TIMEOUT_SEC * 1000)
 
-    return ctxR4.newRestfulGenericClient(FHIR_SERVER_URL)
+    return context.newRestfulGenericClient(FHIR_SERVER_URL)
 }
 
 Closure loadBundleToServer = { IGenericClient newClient, Collection<? extends Resource> resources, String resourceType ->
@@ -568,6 +567,7 @@ readRxNormAttributesFile()
 writeMedicationResources()
 writeSearchParameter()
 
+FhirContext context = FhirContext.forR4()
 
 if (isForLocalTesting) {
     writeBundleToFile(context, outputFolder, substances.values() as Collection<Substance>, 'Substance')
