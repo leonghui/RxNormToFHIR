@@ -130,12 +130,14 @@ Closure readRxNormConceptsFile = {
 
         }
 
-        // only consider non-suppressed synonyms
+        // only consider non-suppressed synonyms and exclude DrugBank terms
         if (tokens.get(16) == "N" || tokens.get(16) == "") {
-            switch (tokens.get(12)) {
-                case ['SY', 'PSN']:// RXCUI, STR
-                    rxNormSynonyms.put(tokens.get(0), tokens.get(14))
-                    break
+            if (tokens.get(11) != "DRUGBANK") {
+                switch (tokens.get(12)) {
+                    case ['SY', 'PSN']:// RXCUI, STR
+                        rxNormSynonyms.put(tokens.get(0), tokens.get(14))
+                        break
+                }
             }
         }
 
@@ -262,7 +264,7 @@ Closure<Ratio> getAmount = { Map<String, String> scdcAttributes ->
             Double numeratorValue = scdcAttributes.get('RXN_BOSS_STRENGTH_NUM_VALUE').toDouble()
 
             amount.setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
-                  .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
+                    .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
 
         } else if (scdcAttributes.get('RXN_STRENGTH')) {
 
@@ -286,7 +288,7 @@ Closure<Ratio> getAmount = { Map<String, String> scdcAttributes ->
                 Double denominatorValue = 1
 
                 amount.setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
-                      .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
+                        .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
             }
         }
     }
