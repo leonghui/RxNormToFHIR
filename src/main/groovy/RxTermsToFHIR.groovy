@@ -520,6 +520,8 @@ Closure loadBundleToServer = { IGenericClient newClient, Collection<? extends Re
 }
 
 Closure writeSearchParameter = {
+    logStart("Writing FHIR SearchParameter resources")
+
     SearchParameter brandSp = new SearchParameter()
     brandSp.addBase('Medication')
             .setCode('brand')
@@ -543,9 +545,13 @@ Closure writeSearchParameter = {
             .setId('synonym')
 
     parameters.add(synonymSp)
+
+    logStop()
 }
 
 Closure writeBundleToFile = { FhirContext context, String folder, Collection<? extends Resource> resources, String resourceType ->
+    logStart("Loading $resourceType bundle (size: ${resources.size()}) to server")
+
     Path path = Paths.get(folder + File.separator + resourceType + ".json")
     BufferedWriter writer = Files.newBufferedWriter(path)
 
@@ -559,6 +565,8 @@ Closure writeBundleToFile = { FhirContext context, String folder, Collection<? e
 
     writer.flush()
     writer.close()
+
+    logStop()
 }
 
 readRxNormConceptsFile()
@@ -570,9 +578,11 @@ writeSearchParameter()
 FhirContext context = FhirContext.forR4()
 
 if (isForLocalTesting) {
+
     writeBundleToFile(context, outputFolder, substances.values() as Collection<Substance>, 'Substance')
     writeBundleToFile(context, outputFolder, medications.values() as Collection<Substance>, 'Medication')
     writeBundleToFile(context, outputFolder, medicationKnowledgeMap.values() as Collection<Substance>, 'MedicationKnowledge')
+
 } else {
 
     IGenericClient client = initiateConnection(context)
