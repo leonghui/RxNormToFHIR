@@ -317,9 +317,11 @@ Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui,
 
         List<StringType> synonyms = rxNormSynonyms.get(ing_rxCui).collect { new StringType(it) }.toList()
 
+        String synonymUrl = FHIR_SERVER_URL + "StructureDefinition/synonym"
+
         synonyms.each {
             Extension synonymExtension = new Extension()
-                    .setUrl("$FHIR_SERVER_URL/StructureDefinition/synonym")
+                    .setUrl(synonymUrl)
                     .setValue(it)
             substance.addExtension(synonymExtension)
         }
@@ -373,8 +375,11 @@ Closure writeMedicationResources = {
             case ['SBD']:
                 String bn_rxCui = hasIngredient.get(rxCui).first()    // SBDs have only one BN
                 String bn_term = brandNames.get(bn_rxCui).getCodingFirstRep().getDisplay()
+
+                String brandUrl = FHIR_SERVER_URL + "StructureDefinition/brand"
+
                 Extension brandExtension = new Extension()
-                        .setUrl("$FHIR_SERVER_URL/StructureDefinition/brand")
+                        .setUrl(brandUrl)
                         .setValue(new StringType(bn_term))
                 med.addExtension(brandExtension)
                 break
@@ -505,7 +510,7 @@ Closure writeSearchParameter = {
             .setType(Enumerations.SearchParamType.STRING)
             .setStatus(Enumerations.PublicationStatus.ACTIVE)
             .setXpathUsage(SearchParameter.XPathUsageType.NORMAL)
-            .setExpression("Medication.extension('" + FHIR_SERVER_URL + "/StructureDefinition/brand')")
+            .setExpression("Medication.extension('" + FHIR_SERVER_URL + "StructureDefinition/brand')")
             .setTitle('Brand')
             .setId('brand')
 
@@ -517,7 +522,7 @@ Closure writeSearchParameter = {
             .setType(Enumerations.SearchParamType.STRING)
             .setStatus(Enumerations.PublicationStatus.ACTIVE)
             .setXpathUsage(SearchParameter.XPathUsageType.NORMAL)
-            .setExpression("Substance.extension('" + FHIR_SERVER_URL + "/StructureDefinition/synonym')")
+            .setExpression("Substance.extension('" + FHIR_SERVER_URL + "StructureDefinition/synonym')")
             .setTitle('Synonym')
             .setId('synonym')
 
