@@ -63,6 +63,9 @@ Map<String, Substance> substances = [:]
 // data structures to store custom search parameters
 List<SearchParameter> parameters = []
 
+// data structures to store RxNorm units of measure
+Set<String> unitsOfMeasure = []
+
 Closure logStart = { String job ->
     watch.reset().start()
     print job + ('\t')
@@ -276,9 +279,13 @@ Closure<Ratio> getAmount = { Map<String, String> scdcAttributes ->
 
             String numeratorUnit = unitDenominator.get(0)
 
+            unitsOfMeasure.add(numeratorUnit)
+
             if (unitDenominator.size() == 2) {
                 String denominatorUnit = unitDenominator.get(1)
                 Double denominatorValue = 1
+
+                unitsOfMeasure.add(denominatorUnit)
 
                 amount.setNumerator(new Quantity().setValue(numeratorValue).setUnit(numeratorUnit))
                         .setDenominator(new Quantity().setValue(denominatorValue).setUnit(denominatorUnit))
