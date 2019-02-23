@@ -327,26 +327,9 @@ Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui,
             component = new MedicationIngredientComponent()
         }
 
-        Substance substance = new Substance()
-
-        substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
-        substance.setCode(ingredients.get(ing_rxCui))
-
-        List<StringType> synonyms = rxNormSynonyms.get(ing_rxCui).collect { new StringType(it) }.toList()
-
-        String synonymUrl = FHIR_SERVER_URL + "StructureDefinition/synonym"
-
-        synonyms.each {
-            Extension synonymExtension = new Extension()
-                    .setUrl(synonymUrl)
-                    .setValue(it)
-            substance.addExtension(synonymExtension)
-        }
-
         String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
-        substance.setId(substanceId)
 
-        substances.put(substanceId, substance)
+        Substance substance = substances.get(substanceId)
 
         if (component instanceof MedicationIngredientComponent) {
             component = (MedicationIngredientComponent) component
@@ -376,6 +359,36 @@ Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui,
         return component
 
     }
+}
+
+Closure writeSubstanceResources = {
+    logStart('Writing FHIR Substance resources')
+
+    ingredients.each { String ing_rxCui, CodeableConcept concept ->
+
+        Substance substance = new Substance()
+
+        substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
+        substance.setCode(concept)
+
+        List<StringType> synonyms = rxNormSynonyms.get(ing_rxCui).collect { new StringType(it) }.toList()
+
+        String synonymUrl = FHIR_SERVER_URL + "StructureDefinition/synonym"
+
+        synonyms.each {
+            Extension synonymExtension = new Extension()
+                    .setUrl(synonymUrl)
+                    .setValue(it)
+            substance.addExtension(synonymExtension)
+        }
+
+        String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
+        substance.setId(substanceId)
+
+        substances.put(substanceId, substance)
+    }
+
+    logStop()
 }
 
 Closure writeMedicationResources = {
@@ -572,6 +585,7 @@ Closure writeBundleToFile = { FhirContext context, String folder, Collection<? e
 readRxNormConceptsFile()
 readRxNormRelationshipsFile()
 readRxNormAttributesFile()
+writeSubstanceResources()
 writeMedicationResources()
 writeSearchParameter()
 
