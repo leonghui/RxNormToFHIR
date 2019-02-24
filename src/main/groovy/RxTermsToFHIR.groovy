@@ -37,6 +37,7 @@ Map<String, CodeableConcept> ingredients = [:]
 Map<String, CodeableConcept> brandNames = [:]
 Map<String, CodeableConcept> doseForms = [:]
 Map<String, CodeableConcept> rxNormConcepts = [:]
+Map<String, CodeableConcept> preciseIngredients = [:]
 
 // rxNorm one-to-one relationships
 // source rxCui, target rxCui
@@ -49,6 +50,7 @@ SetMultimap<String, String> consistsOf = HashMultimap.create()
 SetMultimap<String, String> contains = HashMultimap.create()
 SetMultimap<String, String> isa = HashMultimap.create()
 SetMultimap<String, String> hasDoseFormGroup = HashMultimap.create()
+SetMultimap<String, String> hasForm = HashMultimap.create()
 
 // rxNorm attributes
 // rxCui, ATN, ATV
@@ -137,6 +139,11 @@ Closure readRxNormConceptsFile = {
                     rxNormConcepts.put(tokens.get(0), concept)
                     rxNormTty.put(tokens.get(0), tokens.get(12))
                     break
+                case 'PIN': // RXCUI, STR
+                    CodeableConcept preciseIngredient = new CodeableConcept()
+                            .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
+                    preciseIngredients.put(tokens.get(0), preciseIngredient)
+                    break
             }
 
         }
@@ -204,6 +211,9 @@ Closure readRxNormRelationshipsFile = {
                     break
                 case 'isa':
                     isa.put(tokens.get(4), tokens.get(0))
+                    break
+                case 'has_form':
+                    hasForm.put(tokens.get(4), tokens.get(0))
                     break
             }
         }
@@ -371,15 +381,30 @@ Closure writeSubstanceResources = {
         substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
         substance.setCode(concept)
 
-        List<StringType> synonyms = rxNormSynonyms.get(ing_rxCui).collect { new StringType(it) }.toList()
+        Set<String> synonyms = rxNormSynonyms.get(ing_rxCui).toSet()
 
         String synonymUrl = FHIR_SERVER_URL + "StructureDefinition/synonym"
 
-        synonyms.each {
-            Extension synonymExtension = new Extension()
-                    .setUrl(synonymUrl)
-                    .setValue(it)
-            substance.addExtension(synonymExtension)
+        // Flatten RxNorm hierarchy by storing basis of strength substance (BoSS) as synonyms
+        // exceptions should apply for clinically significant salts
+        Set<String> preciseIngredientIds = hasForm.get(ing_rxCui)
+
+        preciseIngredientIds.each { preciseIng_rxCui ->
+            preciseIngredients.get(preciseIng_rxCui).each {
+                synonyms.add(it.getCodingFirstRep().getDisplay())
+
+                synonyms.addAll(rxNormSynonyms.get(preciseIng_rxCui))
+            }
+        }
+
+        synonyms.unique { s1, s2 -> s1.compareToIgnoreCase(s2) }.each {
+            if (!concept.getCodingFirstRep().getDisplay().equalsIgnoreCase(it)) {
+
+                Extension synonymExtension = new Extension()
+                        .setUrl(synonymUrl)
+                        .setValue(new StringType(it))
+                substance.addExtension(synonymExtension)
+            }
         }
 
         String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
