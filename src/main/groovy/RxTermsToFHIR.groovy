@@ -565,7 +565,7 @@ Closure writeSearchParameter = {
 }
 
 Closure writeBundleToFile = { FhirContext context, String folder, Collection<? extends Resource> resources, String resourceType ->
-    logStart("Loading $resourceType bundle (size: ${resources.size()}) to server")
+    logStart("Writing $resourceType bundle (size: ${resources.size()}) to local file")
 
     Path path = Paths.get(folder + File.separator + resourceType + ".json")
     BufferedWriter writer = Files.newBufferedWriter(path)
