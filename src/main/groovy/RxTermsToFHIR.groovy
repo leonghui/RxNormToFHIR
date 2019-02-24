@@ -479,7 +479,9 @@ Closure writeMedicationResources = {
             )
         }
 
-        List<StringType> synonyms = rxNormSynonyms.get(rxCui).collect { new StringType(it) }
+        List<StringType> synonyms = rxNormSynonyms.get(rxCui)
+                .unique { s1, s2 -> s1.compareToIgnoreCase(s2) }
+                .collect { new StringType(it) }
 
         if (synonyms) {
             medKnowledge.setSynonym(synonyms) // load RxNorm synonyms into MedicationKnowledge
