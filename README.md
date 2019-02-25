@@ -2,51 +2,41 @@
 
 The script performs the following functions:
 1. Look up each RxNorm concept against its relationships and attributes
-2. Translate each concept into a FHIR Medication resource
-3. Load resources as bundles into a target FHIR server (tested with [HAPI-FHIR] JPA Server 3.7.0).
+2. Translate each concept into a pair of FHIR Medication and MedicationKnowledge resources
+3. Load resources as bundles into a target FHIR server (tested with [HAPI-FHIR] JPA Server 3.7.0) or into JSON files for local testing.
 
 RxNorm relationships processed include ([ref][UsingRxNormWithFHIR]):
 * has_ingredient
 * has_dose_form
 * consists_of
 * contains
+* isa
+* has_form
 
 RxNorm attributes processed include ([ref][RxNormBOSS]):
 * RXN_BOSS_STRENGTH_NUM_VALUE
 * RXN_BOSS_STRENGTH_NUM_UNIT
 * RXN_BOSS_STRENGTH_DENOM_VALUE
 * RXN_BOSS_STRENGTH_DENOM_UNIT
-
-The script also normalizes pack concepts (term type = BPCK, GPCK) to its constituent clinical drug concepts (term type = SCD).
+* RXN_STRENGTH
 
 The goal is to create a FHIR server to be used as a dictionary backend for natural language processing (NLP).
 
 Script output:
 ```
-Reading RxNorm concepts file	4.421 s
-Reading RxNorm relationships file	18.02 s
-Reading RxNorm attributes file	18.65 s
-Writing FHIR Medication resources	3.931 s
+Reading RxNorm concepts file	4.522 s
+Reading RxNorm relationships file	13.07 s
+Reading RxNorm attributes file	14.38 s
+Writing FHIR Substance resources	312.3 ms
+Writing FHIR Medication resources	5.154 s
+Writing FHIR SearchParameter resources	88.20 ms
 [main] INFO ca.uhn.fhir.util.VersionUtil - HAPI FHIR version 3.7.0 - Rev f2560071c8
 [main] INFO ca.uhn.fhir.context.FhirContext - Creating new FHIR context for FHIR version [R4]
-[main] INFO ca.uhn.fhir.util.XmlUtil - FHIR XML procesing will use StAX implementation 'Java Runtime Environment' version '1.8.0_201'
-Loading SearchParameter bundle (size: 2) to server
-0 remaining
-8.971 s
-Loading Substance bundle (size: 3326) to server
-2326 remaining
-<snip>
-0 remaining
-55.79 s
-Loading Medication bundle (size: 45083) to server
-44083 remaining
-<snip>
-0 remaining
-Loading MedicationKnowledge bundle (size: 45083) to server
-44083 remaining
-<snip>
-0 remaining
-21.60 min
+Writing Substance bundle (size: 6913) to local file	4.416 s
+Writing Medication bundle (size: 90723) to local file	6.040 s
+Writing MedicationKnowledge bundle (size: 90723) to local file	6.793 s
+Units of measure detected: [%, ACTUAT, AU, BAU, CELLS, HR, MCI, MEQ, MG, ML, MMOL, PNU, SQCM, UNT]
+Total time taken 6.801 s
 
 ```
 
