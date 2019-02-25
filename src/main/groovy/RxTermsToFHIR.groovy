@@ -251,8 +251,8 @@ Closure readRxNormAttributesFile = {
         // only consider non-suppressed RxNorm attributes
         if (tokens.get(9) == "RXNORM" && (tokens.get(11) == "N" || tokens.get(11) == "")) {
             switch (attribName) {
-                // New basis of strength attributes since September 2018 release
-                // https://www.nlm.nih.gov/pubs/techbull/so18/brief/so18_rxnorm_boss.html
+            // New basis of strength attributes since September 2018 release
+            // https://www.nlm.nih.gov/pubs/techbull/so18/brief/so18_rxnorm_boss.html
                 case [
                         'RXN_BOSS_STRENGTH_NUM_VALUE',
                         'RXN_BOSS_STRENGTH_NUM_UNIT',
@@ -269,6 +269,51 @@ Closure readRxNormAttributesFile = {
     }
 
     cpcRxnSat.close()
+    logStop()
+}
+
+Closure writeSubstanceResources = {
+    logStart('Writing FHIR Substance resources')
+
+    ingredients.each { String ing_rxCui, CodeableConcept concept ->
+
+        Substance substance = new Substance()
+
+        substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
+        substance.setCode(concept)
+
+        Set<String> synonyms = rxNormSynonyms.get(ing_rxCui).toSet()
+
+        String synonymUrl = FHIR_SERVER_URL + "StructureDefinition/synonym"
+
+        // Flatten RxNorm hierarchy by storing basis of strength substance (BoSS) as synonyms
+        // exceptions should apply for clinically significant salts
+        Set<String> preciseIngredientIds = hasForm.get(ing_rxCui)
+
+        preciseIngredientIds.each { preciseIng_rxCui ->
+            preciseIngredients.get(preciseIng_rxCui).each {
+                synonyms.add(it.getCodingFirstRep().getDisplay())
+
+                synonyms.addAll(rxNormSynonyms.get(preciseIng_rxCui))
+            }
+        }
+
+        synonyms.unique { s1, s2 -> s1.compareToIgnoreCase(s2) }.each {
+            if (!concept.getCodingFirstRep().getDisplay().equalsIgnoreCase(it)) {
+
+                Extension synonymExtension = new Extension()
+                        .setUrl(synonymUrl)
+                        .setValue(new StringType(it))
+                substance.addExtension(synonymExtension)
+            }
+        }
+
+        String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
+        substance.setId(substanceId)
+
+        substances.put(substanceId, substance)
+    }
+
     logStop()
 }
 
@@ -365,53 +410,6 @@ Closure<BackboneElement> getIngredientComponent = { String scdc_rxCui, boolean f
 
     }
 }
-
-Closure writeSubstanceResources = {
-    logStart('Writing FHIR Substance resources')
-
-    ingredients.each { String ing_rxCui, CodeableConcept concept ->
-
-        Substance substance = new Substance()
-
-        substance.setStatus(Substance.FHIRSubstanceStatus.ACTIVE)
-        substance.setCode(concept)
-
-        Set<String> synonyms = rxNormSynonyms.get(ing_rxCui).toSet()
-
-        String synonymUrl = FHIR_SERVER_URL + "StructureDefinition/synonym"
-
-        // Flatten RxNorm hierarchy by storing basis of strength substance (BoSS) as synonyms
-        // exceptions should apply for clinically significant salts
-        Set<String> preciseIngredientIds = hasForm.get(ing_rxCui)
-
-        preciseIngredientIds.each { preciseIng_rxCui ->
-            preciseIngredients.get(preciseIng_rxCui).each {
-                synonyms.add(it.getCodingFirstRep().getDisplay())
-
-                synonyms.addAll(rxNormSynonyms.get(preciseIng_rxCui))
-            }
-        }
-
-        synonyms.unique { s1, s2 -> s1.compareToIgnoreCase(s2) }.each {
-            if (!concept.getCodingFirstRep().getDisplay().equalsIgnoreCase(it)) {
-
-                Extension synonymExtension = new Extension()
-                        .setUrl(synonymUrl)
-                        .setValue(new StringType(it))
-                substance.addExtension(synonymExtension)
-            }
-        }
-
-        String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
-        substance.setId(substanceId)
-
-        substances.put(substanceId, substance)
-    }
-
-    logStop()
-}
-
-
 
 Closure setIngredientComponent = { String rxCui, Medication med, MedicationKnowledge medKnowledge ->
     MedicationIngredientComponent medIngredientComponent =
