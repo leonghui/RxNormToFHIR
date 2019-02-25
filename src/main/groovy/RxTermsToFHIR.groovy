@@ -133,7 +133,7 @@ Closure readRxNormConceptsFile = {
                             .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
                     brandNames.put(tokens.get(0), brandName)
                     break
-                case ['SCD', 'SBD', 'GPCK', 'BPCK', 'SCDF', 'SBDF']: // RXCUI, STR
+                case ['SCD', 'SBD', 'SCDF', 'SBDF', 'SCDC', 'SBDC']: // RXCUI, STR
                     CodeableConcept concept = new CodeableConcept()
                             .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
                     rxNormConcepts.put(tokens.get(0), concept)
@@ -436,7 +436,7 @@ Closure writeMedicationResources = {
         String tty = rxNormTty.get(rxCui)
 
         switch (tty) {
-            case ['SBD']:
+            case ['SBD', 'SBDC']:
                 String bn_rxCui = hasIngredient.get(rxCui).first()    // SBDs have only one BN
                 String bn_term = brandNames.get(bn_rxCui).getCodingFirstRep().getDisplay()
 
@@ -454,6 +454,9 @@ Closure writeMedicationResources = {
                 consistsOf.get(rxCui).each { String drugComponent_rxCui ->
                     setIngredientComponent(drugComponent_rxCui, med, medKnowledge)
                 }
+                break
+            case ['SBDC', 'SCDC']:
+                setIngredientComponent(rxCui, med, medKnowledge)
                 break
             case ['BPCK', 'GPCK']:
                 contains.get(rxCui).each { String clinicalDrug_rxCui ->
