@@ -323,26 +323,21 @@ Closure<Ratio> getAmount = { Map<String, String> scdcAttributes ->
     return amount
 }
 
-Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui, boolean forKnowledge ->
+Closure<BackboneElement> getIngredientComponent = { String scdc_rxCui, boolean forMedicationKnowledge ->
     String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each component has only one ingredient
 
     CodeableConcept ingredient = ingredients.get(ing_rxCui)
 
-    BackboneElement component
-
     if (ingredient) {
-        if (forKnowledge) {
-            component = new MedicationKnowledge.MedicationKnowledgeIngredientComponent()
-        } else {
-            component = new MedicationIngredientComponent()
-        }
 
         String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
 
         Substance substance = substances.get(substanceId)
 
-        if (component instanceof MedicationIngredientComponent) {
-            component = (MedicationIngredientComponent) component
+        BackboneElement component
+
+        if (forMedicationKnowledge) {
+            component = new MedicationKnowledge.MedicationKnowledgeIngredientComponent()
 
             Reference substanceReference = new Reference(substance)
             component.setItem(substanceReference)
@@ -353,8 +348,8 @@ Closure<BackboneElement> getMedicationIngredientComponent = { String scdc_rxCui,
 
             component.setIsActive(true)
 
-        } else if (component instanceof MedicationKnowledge.MedicationKnowledgeIngredientComponent) {
-            component = (MedicationKnowledge.MedicationKnowledgeIngredientComponent) component
+        } else {
+            component = new MedicationIngredientComponent()
 
             Reference substanceReference = new Reference(substance)
             component.setItem(substanceReference)
@@ -416,6 +411,20 @@ Closure writeSubstanceResources = {
     logStop()
 }
 
+
+
+Closure setIngredientComponent = { String rxCui, Medication med, MedicationKnowledge medKnowledge ->
+    MedicationIngredientComponent medIngredientComponent =
+            (MedicationIngredientComponent) getIngredientComponent(rxCui, false)
+
+    med.addIngredient(medIngredientComponent)
+
+    MedicationKnowledge.MedicationKnowledgeIngredientComponent medKnowledgeIngredientComponent =
+            (MedicationKnowledge.MedicationKnowledgeIngredientComponent) getIngredientComponent(rxCui, true)
+
+    medKnowledge.addIngredient(medKnowledgeIngredientComponent)
+}
+
 Closure writeMedicationResources = {
     logStart('Writing FHIR Medication resources')
 
@@ -443,38 +452,13 @@ Closure writeMedicationResources = {
         switch (tty) {
             case ['SBD', 'SCD']:
                 consistsOf.get(rxCui).each { String drugComponent_rxCui ->
-
-                    MedicationIngredientComponent medIngredientComponent =
-                            (MedicationIngredientComponent) getMedicationIngredientComponent(
-                                    drugComponent_rxCui, false
-                            )
-
-                    med.addIngredient(medIngredientComponent)
-
-                    MedicationKnowledge.MedicationKnowledgeIngredientComponent medKnowledgeIngredientComponent =
-                            (MedicationKnowledge.MedicationKnowledgeIngredientComponent) getMedicationIngredientComponent(
-                                    drugComponent_rxCui, true
-                            )
-
-                    medKnowledge.addIngredient(medKnowledgeIngredientComponent)
+                    setIngredientComponent(drugComponent_rxCui, med, medKnowledge)
                 }
                 break
             case ['BPCK', 'GPCK']:
                 contains.get(rxCui).each { String clinicalDrug_rxCui ->
                     consistsOf.get(clinicalDrug_rxCui).each { String drugComponent_rxCui ->
-                        MedicationIngredientComponent medIngredientComponent =
-                                (MedicationIngredientComponent) getMedicationIngredientComponent(
-                                        drugComponent_rxCui, false
-                                )
-
-                        med.addIngredient(medIngredientComponent)
-
-                        MedicationKnowledge.MedicationKnowledgeIngredientComponent medKnowledgeIngredientComponent =
-                                (MedicationKnowledge.MedicationKnowledgeIngredientComponent) getMedicationIngredientComponent(
-                                        drugComponent_rxCui, true
-                                )
-
-                        medKnowledge.addIngredient(medKnowledgeIngredientComponent)
+                        setIngredientComponent(drugComponent_rxCui, med, medKnowledge)
                     }
                 }
                 break
