@@ -51,6 +51,7 @@ SetMultimap<String, String> contains = HashMultimap.create()
 SetMultimap<String, String> isa = HashMultimap.create()
 SetMultimap<String, String> hasDoseFormGroup = HashMultimap.create()
 SetMultimap<String, String> hasForm = HashMultimap.create()
+SetMultimap<String, String> tradeNameOf = HashMultimap.create()
 
 // rxNorm attributes
 // rxCui, ATN, ATV
@@ -215,6 +216,9 @@ Closure readRxNormRelationshipsFile = {
                 case 'has_form':
                     hasForm.put(tokens.get(4), tokens.get(0))
                     break
+                case 'tradename_of':
+                    tradeNameOf.put(tokens.get(4), tokens.get(0))
+                    break
             }
         }
     }
@@ -368,59 +372,65 @@ Closure<Ratio> getAmount = { Map<String, String> scdcAttributes ->
     return amount
 }
 
-Closure<BackboneElement> getIngredientComponent = { String scdc_rxCui, boolean forMedicationKnowledge ->
-    String ing_rxCui = hasIngredient.get(scdc_rxCui).first()    // assume each component has only one ingredient
+Closure<List<BackboneElement>> getIngredientComponent = { String scdc_rxCui, boolean forMedicationKnowledge ->
+    Set<String> ing_rxCuis = hasIngredient.get(scdc_rxCui)
 
-    CodeableConcept ingredient = ingredients.get(ing_rxCui)
+    return ing_rxCuis.collect { ing_rxCui ->
 
-    if (ingredient) {
+        CodeableConcept ingredient = ingredients.get(ing_rxCui)
 
-        String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
+        if (ingredient) {
 
-        Substance substance = substances.get(substanceId)
+            String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
 
-        BackboneElement component
+            Substance substance = substances.get(substanceId)
 
-        if (forMedicationKnowledge) {
-            component = new MedicationKnowledge.MedicationKnowledgeIngredientComponent()
+            BackboneElement component
 
-            Reference substanceReference = new Reference(substance)
-            component.setItem(substanceReference)
+            if (forMedicationKnowledge) {
+                component = new MedicationKnowledge.MedicationKnowledgeIngredientComponent()
 
-            Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
+                Reference substanceReference = new Reference(substance)
+                component.setItem(substanceReference)
 
-            component.setStrength(getAmount(scdcAttributes))
+                Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
 
-            component.setIsActive(true)
+                component.setStrength(getAmount(scdcAttributes))
 
-        } else {
-            component = new MedicationIngredientComponent()
+                component.setIsActive(true)
 
-            Reference substanceReference = new Reference(substance)
-            component.setItem(substanceReference)
+            } else {
+                component = new MedicationIngredientComponent()
 
-            Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
+                Reference substanceReference = new Reference(substance)
+                component.setItem(substanceReference)
 
-            component.setStrength(getAmount(scdcAttributes))
+                Map<String, String> scdcAttributes = attributes.row(scdc_rxCui)
 
-            component.setIsActive(true)
+                component.setStrength(getAmount(scdcAttributes))
+
+                component.setIsActive(true)
+            }
+
+            return component
         }
-
-        return component
 
     }
 }
 
 Closure setIngredientComponent = { String rxCui, Medication med, MedicationKnowledge medKnowledge ->
-    MedicationIngredientComponent medIngredientComponent =
-            (MedicationIngredientComponent) getIngredientComponent(rxCui, false)
+    List<MedicationIngredientComponent> medIngredientComponents = getIngredientComponent(rxCui, false)
 
-    med.addIngredient(medIngredientComponent)
+    medIngredientComponents.each {
+        med.addIngredient(it)
+    }
 
-    MedicationKnowledge.MedicationKnowledgeIngredientComponent medKnowledgeIngredientComponent =
-            (MedicationKnowledge.MedicationKnowledgeIngredientComponent) getIngredientComponent(rxCui, true)
+    List<MedicationKnowledge.MedicationKnowledgeIngredientComponent> medKnowledgeIngredientComponents =
+            getIngredientComponent(rxCui, true)
 
-    medKnowledge.addIngredient(medKnowledgeIngredientComponent)
+    medKnowledgeIngredientComponents.each {
+        medKnowledge.addIngredient(it)
+    }
 }
 
 Closure writeMedicationResources = {
@@ -434,8 +444,8 @@ Closure writeMedicationResources = {
         String tty = rxNormTty.get(rxCui)
 
         switch (tty) {
-            case ['SBD', 'SBDC']:
-                String bn_rxCui = hasIngredient.get(rxCui).first()    // SBDs have only one BN
+            case ['SBD', 'SBDC', 'SBDF']:
+                String bn_rxCui = hasIngredient.get(rxCui).first()    // SBD/SBDC/SBDFs have only one BN
                 String bn_term = brandNames.get(bn_rxCui).getCodingFirstRep().getDisplay()
 
                 String brandUrl = FHIR_SERVER_URL + "StructureDefinition/brand"
@@ -453,8 +463,13 @@ Closure writeMedicationResources = {
                     setIngredientComponent(drugComponent_rxCui, med, medKnowledge)
                 }
                 break
-            case ['SBDC', 'SCDC']:
+            case ['SCDC', 'SCDF']:
                 setIngredientComponent(rxCui, med, medKnowledge)
+                break
+            case ['SBDC', 'SBDF']:
+                tradeNameOf.get(rxCui).each { String generic_rxCui ->
+                    setIngredientComponent(generic_rxCui, med, medKnowledge)
+                }
                 break
             case ['BPCK', 'GPCK']:
                 contains.get(rxCui).each { String clinicalDrug_rxCui ->
