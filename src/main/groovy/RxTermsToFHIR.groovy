@@ -159,7 +159,7 @@ Closure readRxNormConceptsFile = {
                 }
             }
         }
-
+        return true
     }
 
     cpcRxnConso.close()
@@ -221,6 +221,7 @@ Closure readRxNormRelationshipsFile = {
                     break
             }
         }
+        return true
     }
 
     cpcRxnRel.close()
@@ -270,6 +271,7 @@ Closure readRxNormAttributesFile = {
                     break
             }
         }
+        return true
     }
 
     cpcRxnSat.close()
@@ -372,20 +374,20 @@ Closure<Ratio> getAmount = { Map<String, String> scdcAttributes ->
     return amount
 }
 
-Closure<List<BackboneElement>> getIngredientComponent = { String scdc_rxCui, boolean forMedicationKnowledge ->
+Closure<Collection<BackboneElement>> getIngredientComponent = { String scdc_rxCui, boolean forMedicationKnowledge ->
     Set<String> ing_rxCuis = hasIngredient.get(scdc_rxCui)
 
-    return ing_rxCuis.collect { ing_rxCui ->
+    return ing_rxCuis.findResults { ing_rxCui ->
 
         CodeableConcept ingredient = ingredients.get(ing_rxCui)
+
+        BackboneElement component = null
 
         if (ingredient) {
 
             String substanceId = "rxNorm-$ing_rxCui"    // use rxNorm-<rxCui> as resource ID
 
             Substance substance = substances.get(substanceId)
-
-            BackboneElement component
 
             if (forMedicationKnowledge) {
                 component = new MedicationKnowledge.MedicationKnowledgeIngredientComponent()
@@ -411,22 +413,22 @@ Closure<List<BackboneElement>> getIngredientComponent = { String scdc_rxCui, boo
 
                 component.setIsActive(true)
             }
-
-            return component
         }
 
+        return component
     }
 }
 
 Closure setIngredientComponent = { String rxCui, Medication med, MedicationKnowledge medKnowledge ->
-    List<MedicationIngredientComponent> medIngredientComponents = getIngredientComponent(rxCui, false)
+    List<MedicationIngredientComponent> medIngredientComponents =
+            getIngredientComponent(rxCui, false) as List<MedicationIngredientComponent>
 
     medIngredientComponents.each {
         med.addIngredient(it)
     }
 
     List<MedicationKnowledge.MedicationKnowledgeIngredientComponent> medKnowledgeIngredientComponents =
-            getIngredientComponent(rxCui, true)
+            getIngredientComponent(rxCui, true) as List<MedicationKnowledge.MedicationKnowledgeIngredientComponent>
 
     medKnowledgeIngredientComponents.each {
         medKnowledge.addIngredient(it)
