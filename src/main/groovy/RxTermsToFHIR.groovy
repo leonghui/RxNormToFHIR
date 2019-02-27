@@ -497,9 +497,11 @@ Closure writeMedicationResources = {
         medications.put(medId, med)
 
 
-        // store associated parent concepts (SCDF/SBDF) in MedicationKnowledge
+        // store associated parent concepts (SCDF/SBDF/SCDC/SBDC) in MedicationKnowledge
         // only if the parent concepts are extracted
         Set<String> parentIds = isa.get(rxCui).findAll { rxNormConcepts.containsKey(it) }
+
+        parentIds.addAll(consistsOf.get(rxCui).findAll { rxNormConcepts.containsKey(it) })
 
         if (parentIds) {
             medKnowledge.setAssociatedMedication(
