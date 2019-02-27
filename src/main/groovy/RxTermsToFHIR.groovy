@@ -42,6 +42,7 @@ Map<String, CodeableConcept> preciseIngredients = [:]
 // rxNorm one-to-one relationships
 // source rxCui, target rxCui
 Map<String, String> hasDoseForm = [:]
+Map<String, String> hasDoseFormGroup = [:]
 
 // rxNorm one-to-many relationships
 // source rxCui, target rxCui
@@ -49,7 +50,6 @@ SetMultimap<String, String> hasIngredient = HashMultimap.create()
 SetMultimap<String, String> consistsOf = HashMultimap.create()
 SetMultimap<String, String> contains = HashMultimap.create()
 SetMultimap<String, String> isa = HashMultimap.create()
-SetMultimap<String, String> hasDoseFormGroup = HashMultimap.create()
 SetMultimap<String, String> hasForm = HashMultimap.create()
 SetMultimap<String, String> tradeNameOf = HashMultimap.create()
 
@@ -119,7 +119,7 @@ Closure readRxNormConceptsFile = {
         // only consider non-suppressed RxNorm concepts
         if (tokens.get(11) == "RXNORM" && (tokens.get(16) == "N" || tokens.get(16) == "")) {
             switch (tokens.get(12)) {
-                case 'DF': // RXCUI, STR
+                case 'DF': case 'DFG': // RXCUI, STR
                     CodeableConcept doseForm = new CodeableConcept()
                             .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
                     doseForms.put(tokens.get(0), doseForm)
@@ -134,6 +134,7 @@ Closure readRxNormConceptsFile = {
                             .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
                     brandNames.put(tokens.get(0), brandName)
                     break
+                //case ['SCD', 'SBD', 'SCDF', 'SBDF', 'SCDC', 'SBDC', 'SCDG', 'SBDG']: // RXCUI, STR
                 case ['SCD', 'SBD', 'SCDF', 'SBDF', 'SCDC', 'SBDC']: // RXCUI, STR
                     CodeableConcept concept = new CodeableConcept()
                             .addCoding(new Coding(RXNORM_SYSTEM, tokens.get(0), tokens.get(14)))
@@ -446,7 +447,7 @@ Closure writeMedicationResources = {
         String tty = rxNormTty.get(rxCui)
 
         switch (tty) {
-            case ['SBD', 'SBDC', 'SBDF']:
+            case ['SBD', 'SBDC', 'SBDF', 'SBDG']:
                 String bn_rxCui = hasIngredient.get(rxCui).first()    // SBD/SBDC/SBDFs have only one BN
                 String bn_term = brandNames.get(bn_rxCui).getCodingFirstRep().getDisplay()
 
@@ -465,7 +466,7 @@ Closure writeMedicationResources = {
                     setIngredientComponent(drugComponent_rxCui, med, medKnowledge)
                 }
                 break
-            case ['SCDC', 'SCDF']:
+            case ['SCDC', 'SCDF', 'SCDG', 'SBDG']:
                 setIngredientComponent(rxCui, med, medKnowledge)
                 break
             case ['SBDC', 'SBDF']:
@@ -518,7 +519,7 @@ Closure writeMedicationResources = {
         }
 
         medKnowledge.setStatus("active")
-        medKnowledge.setDoseForm(doseForms.get(hasDoseForm.get(rxCui)))
+        medKnowledge.setDoseForm(doseForms.get(doseFormId))
         medKnowledge.setCode(rxNormConcepts.get(rxCui)) // MedicationKnowledge uses the same identifier as Medication
 
         medKnowledge.setId(medId)    // use rxNorm-<rxCui> as resource ID
