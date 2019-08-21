@@ -27,7 +27,7 @@ int SOCKET_TIMEOUT_SEC = 180
 
 String FHIR_SERVER_URL = 'http://localhost:8080/hapi-fhir-jpaserver/fhir/'
 String RXNORM_SYSTEM = 'http://www.nlm.nih.gov/research/umls/rxnorm'
-String RXNORM_VERSION = '02042019'
+String RXNORM_VERSION = '08052019'
 String RXNORM_FOLDER_NAME = "RxNorm_full_$RXNORM_VERSION"
 
 
